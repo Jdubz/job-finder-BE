@@ -22,9 +22,16 @@ gcloud projects add-iam-policy-binding static-sites-257923 \
   --role="roles/cloudfunctions.admin" \
   --condition=None
 
-# 2. Service Account User on itself (to deploy functions that run as itself)
+# 2. Service Account User on itself
 gcloud iam service-accounts add-iam-policy-binding \
   firebase-admin@static-sites-257923.iam.gserviceaccount.com \
+  --member="serviceAccount:firebase-admin@static-sites-257923.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser" \
+  --project=static-sites-257923
+
+# 3. Service Account User on cloud-functions-builder (for build process)
+gcloud iam service-accounts add-iam-policy-binding \
+  cloud-functions-builder@static-sites-257923.iam.gserviceaccount.com \
   --member="serviceAccount:firebase-admin@static-sites-257923.iam.gserviceaccount.com" \
   --role="roles/iam.serviceAccountUser" \
   --project=static-sites-257923
