@@ -82,9 +82,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       
       - name: Deploy to Firebase Staging
-        run: firebase deploy --only functions --project staging
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_STAGING }}
+        run: firebase deploy --only functions
 
   deploy-production:
     name: Deploy to Production
@@ -121,5 +119,3 @@ jobs:
       
       - name: Deploy to Firebase Production
         run: firebase deploy --only functions
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PRODUCTION }}
