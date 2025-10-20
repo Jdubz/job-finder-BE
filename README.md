@@ -132,16 +132,73 @@ npm run lint:fix
 
 ## Deployment
 
+### Deployment Overview
+
+This project uses CI/CD for automated deployments:
+- **Staging**: Merge to `staging` branch triggers deployment to staging environment
+- **Production**: Merge `staging` to `main` triggers deployment to production
+
 ### Deploy to Staging
 
+Merge your changes to the `staging` branch:
+
 ```bash
-npm run deploy:staging
+git checkout staging
+git merge your-branch
+git push origin staging
 ```
+
+GitHub Actions will automatically deploy to staging functions (manageJobQueue-staging, etc.)
 
 ### Deploy to Production
 
+**IMPORTANT**: Always deploy to staging first and validate before production.
+
+#### Automated Production Deployment (Recommended)
+
+Use the deployment script for guided deployment:
+
 ```bash
-npm run deploy
+./scripts/deploy-production.sh
+```
+
+This script will:
+1. Confirm pre-deployment checklist
+2. Run tests and build
+3. Merge staging to main
+4. Push to trigger CI/CD deployment
+
+#### Manual Production Deployment
+
+```bash
+# 1. Backup production data
+./scripts/backup-production.sh
+
+# 2. Review changes
+git diff main staging
+
+# 3. Merge and deploy
+git checkout main
+git merge staging
+git push origin main
+```
+
+### Production Deployment Validation
+
+After deployment, run smoke tests:
+
+```bash
+./scripts/smoke-tests-production.sh
+```
+
+See [Production Deployment Guide](./docs/PRODUCTION_DEPLOYMENT.md) for detailed instructions.
+
+### Rollback
+
+If issues arise in production:
+
+```bash
+./scripts/rollback-production.sh
 ```
 
 ## API Endpoints
