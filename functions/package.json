@@ -29,7 +29,7 @@
     "@google-cloud/logging": "^11.0.0",
     "@google-cloud/secret-manager": "^5.5.0",
     "@google-cloud/storage": "^7.17.2",
-    "@jsdubzw/job-finder-shared-types": "^1.1.1",
+    "@jsdubzw/job-finder-shared-types": "1.1.1",
     "@sparticuz/chromium": "^141.0.0",
     "@types/busboy": "^1.5.4",
     "busboy": "^1.6.0",
