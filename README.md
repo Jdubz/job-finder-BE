@@ -132,17 +132,56 @@ npm run lint:fix
 
 ## Deployment
 
-### Deploy to Staging
+### Quick Deployment
 
+**Deploy to Staging (Automated)**
 ```bash
-npm run deploy:staging
+./scripts/deploy-staging.sh
 ```
 
-### Deploy to Production
+This script will:
+- Run all pre-deployment checks (lint, test, build)
+- Deploy functions, Firestore rules, and Storage rules
+- Verify deployment
+- Provide next steps
 
+**Deploy to Production**
 ```bash
-npm run deploy
+firebase use production
+firebase deploy
 ```
+
+### Manual Deployment
+
+**Deploy functions only:**
+```bash
+firebase use staging
+firebase deploy --only functions
+```
+
+**Deploy Firestore rules and indexes:**
+```bash
+firebase deploy --only firestore:rules,firestore:indexes
+```
+
+**Deploy Storage rules:**
+```bash
+firebase deploy --only storage
+```
+
+### Post-Deployment Validation
+
+Run smoke tests after deployment:
+```bash
+export STAGING_AUTH_TOKEN="your-token"
+./scripts/smoke-tests.sh
+```
+
+### Comprehensive Guide
+
+For detailed deployment instructions, see:
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Complete deployment procedures
+- **[Monitoring Guide](docs/MONITORING.md)** - Monitoring and observability setup
 
 ## API Endpoints
 

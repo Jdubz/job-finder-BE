@@ -1,0 +1,94 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasEditorRole() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'editor';
+    }
+    
+    function hasAdminRole() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Users collection - users can read/write their own data
+    match /users/{userId} {
+      allow read: if isOwner(userId) || hasEditorRole() || hasAdminRole();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || hasAdminRole();
+      allow delete: if hasAdminRole();
+    }
+    
+    // Job queue collection - authenticated users can submit jobs
+    match /jobQueue/{jobId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      hasEditorRole() || 
+                      hasAdminRole());
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if hasEditorRole() || hasAdminRole();
+      allow delete: if hasEditorRole() || hasAdminRole();
+    }
+    
+    // Job matches collection - users can read their own matches
+    match /jobMatches/{matchId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.userId == request.auth.uid || 
+                      hasEditorRole() || 
+                      hasAdminRole());
+      allow create: if hasEditorRole() || hasAdminRole();
+      allow update: if isAuthenticated() && 
+                       (resource.data.userId == request.auth.uid || 
+                        hasEditorRole() || 
+                        hasAdminRole());
+      allow delete: if hasAdminRole();
+    }
+    
+    // System configuration - read-only for authenticated users, write for admins
+    match /config/{configId} {
+      allow read: if isAuthenticated();
+      allow write: if hasAdminRole();
+    }
+    
+    // Stop list configuration - read-only for authenticated users
+    match /stopList/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if hasAdminRole();
+    }
+    
+    // Experience items - users can manage their own experience
+    match /experience/{userId}/items/{itemId} {
+      allow read: if isOwner(userId) || hasEditorRole() || hasAdminRole();
+      allow write: if isOwner(userId);
+    }
+    
+    // Content items - users can manage their own content
+    match /contentItems/{userId}/items/{itemId} {
+      allow read: if isOwner(userId) || hasEditorRole() || hasAdminRole();
+      allow write: if isOwner(userId);
+    }
+    
+    // Generated documents metadata - users can read their own documents
+    match /generatedDocuments/{userId}/documents/{docId} {
+      allow read: if isOwner(userId) || hasEditorRole() || hasAdminRole();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId) || hasAdminRole();
+    }
+    
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

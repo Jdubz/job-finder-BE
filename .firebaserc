@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "job-finder-production"
+    "default": "job-finder-production",
+    "staging": "job-finder-staging",
+    "production": "job-finder-production"
   }
 }

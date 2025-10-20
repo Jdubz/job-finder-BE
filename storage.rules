@@ -1,0 +1,70 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasEditorRole() {
+      return isAuthenticated() && 
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'editor';
+    }
+    
+    function hasAdminRole() {
+      return isAuthenticated() && 
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Validate file size (max 10MB for documents)
+    function isValidSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Validate file type for documents (PDF, DOCX)
+    function isValidDocumentType() {
+      return request.resource.contentType.matches('application/pdf') ||
+             request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.wordprocessingml.document') ||
+             request.resource.contentType.matches('application/msword');
+    }
+    
+    // User-generated documents (resumes, cover letters)
+    match /users/{userId}/documents/{documentId} {
+      allow read: if isOwner(userId) || hasEditorRole() || hasAdminRole();
+      allow write: if isOwner(userId) && isValidSize() && isValidDocumentType();
+      allow delete: if isOwner(userId) || hasAdminRole();
+    }
+    
+    // Generated PDFs (temporary storage)
+    match /generated/{userId}/{allPaths=**} {
+      allow read: if isOwner(userId) || hasEditorRole() || hasAdminRole();
+      allow write: if isOwner(userId) && isValidSize() && isValidDocumentType();
+      allow delete: if isOwner(userId) || hasAdminRole();
+    }
+    
+    // User profile images
+    match /users/{userId}/profile/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && 
+                      request.resource.size < 5 * 1024 * 1024 &&
+                      request.resource.contentType.matches('image/.*');
+      allow delete: if isOwner(userId) || hasAdminRole();
+    }
+    
+    // Admin uploads (templates, etc.)
+    match /admin/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if hasAdminRole();
+    }
+    
+    // Default deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
