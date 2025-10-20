@@ -29,9 +29,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install functions dependencies
-        run: cd functions && npm ci
-
       - name: Run linter
         run: npm run lint
       
@@ -67,9 +64,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install functions dependencies
-        run: cd functions && npm ci
-
       - name: Build
         run: npm run build
 
@@ -78,8 +72,9 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Deploy Cloud Function to Staging
+      - name: Deploy Cloud Functions to Staging
         run: |
+          # Deploy Job Queue function
           gcloud functions deploy manageJobQueue-staging \
             --gen2 \
             --runtime=nodejs20 \
@@ -88,6 +83,55 @@ jobs:
             --entry-point=manageJobQueue \
             --trigger-http \
             --allow-unauthenticated \
+            --project=static-sites-257923
+
+          # Deploy Generator function (requires more memory and timeout for PDF generation)
+          gcloud functions deploy manageGenerator-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageGenerator \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=1024Mi \
+            --timeout=540s \
+            --project=static-sites-257923
+
+          # Deploy Resume Upload function
+          gcloud functions deploy uploadResume-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=uploadResume \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=512Mi \
+            --project=static-sites-257923
+
+          # Deploy Content Items function
+          gcloud functions deploy manageContentItems-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageContentItems \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=256Mi \
+            --project=static-sites-257923
+
+          # Deploy Experience function
+          gcloud functions deploy manageExperience-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageExperience \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=256Mi \
             --project=static-sites-257923
 
   deploy-production:
@@ -109,9 +153,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install functions dependencies
-        run: cd functions && npm ci
-
       - name: Build
         run: npm run build
 
@@ -120,8 +161,9 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
-      - name: Deploy Cloud Function to Production
+      - name: Deploy Cloud Functions to Production
         run: |
+          # Deploy Job Queue function
           gcloud functions deploy manageJobQueue \
             --gen2 \
             --runtime=nodejs20 \
@@ -130,4 +172,53 @@ jobs:
             --entry-point=manageJobQueue \
             --trigger-http \
             --allow-unauthenticated \
+            --project=static-sites-257923
+
+          # Deploy Generator function (requires more memory and timeout for PDF generation)
+          gcloud functions deploy manageGenerator \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageGenerator \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=1024Mi \
+            --timeout=540s \
+            --project=static-sites-257923
+
+          # Deploy Resume Upload function
+          gcloud functions deploy uploadResume \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=uploadResume \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=512Mi \
+            --project=static-sites-257923
+
+          # Deploy Content Items function
+          gcloud functions deploy manageContentItems \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageContentItems \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=256Mi \
+            --project=static-sites-257923
+
+          # Deploy Experience function
+          gcloud functions deploy manageExperience \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageExperience \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=256Mi \
             --project=static-sites-257923
