@@ -4,8 +4,10 @@
  * Centralized error code definitions for all Cloud Functions.
  * Each function has its own prefix:
  * - CF_* = Contact Form
+ * - CI_* = Content Items
  * - EXP_* = Experience
  * - GEN_* = Generator
+ * - JQ_* = Job Queue
  * - RES_* = Resume
  *
  * Error code structure: {PREFIX}_{CATEGORY}_{NUMBER}
@@ -91,6 +93,21 @@ export const RESUME_ERROR_CODES = {
   // Server errors (5xx)
   STORAGE_ERROR: { code: "RES_STOR_001", status: 503, message: "Storage service error" },
   INTERNAL_ERROR: { code: "RES_SYS_001", status: 500, message: "Internal server error" },
+} as const
+
+/**
+ * Content Items API Error Codes (CI_*)
+ * Uses same structure as Experience API
+ */
+export const CONTENT_ITEMS_ERROR_CODES = {
+  // Client errors (400, 404, 405)
+  VALIDATION_FAILED: { code: "CI_VAL_001", status: 400, message: "Validation failed" },
+  NOT_FOUND: { code: "CI_REQ_001", status: 404, message: "Content item not found" },
+  METHOD_NOT_ALLOWED: { code: "CI_REQ_002", status: 405, message: "Method not allowed" },
+
+  // Server errors (5xx)
+  FIRESTORE_ERROR: { code: "CI_DB_001", status: 503, message: "Database error" },
+  INTERNAL_ERROR: { code: "CI_SYS_001", status: 500, message: "Internal server error" },
 } as const
 
 /**

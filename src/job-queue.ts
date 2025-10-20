@@ -994,5 +994,13 @@ const handleJobQueueRequest = async (req: Request, res: Response) => {
   }
 };
 
-// Export Cloud Function
-export const manageJobQueue = functions.https.onRequest(handleJobQueueRequest);
+// Export Cloud Function with 2nd gen runtime options
+export const manageJobQueue = functions.https.onRequest(
+  {
+    region: 'us-central1',
+    memory: '512MiB',
+    maxInstances: 10,
+    timeoutSeconds: 300,
+  },
+  handleJobQueueRequest
+);

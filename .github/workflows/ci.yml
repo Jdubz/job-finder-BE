@@ -28,7 +28,7 @@ jobs:
       
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run linter
         run: npm run lint
       
@@ -50,67 +50,175 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build
         run: npm run build
-      
-      - name: Setup Firebase CLI
-        run: npm install -g firebase-tools
-      
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
-      
-      - name: Deploy to Firebase Staging
-        run: firebase deploy --only functions --project staging
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_STAGING }}
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy Cloud Functions to Staging
+        run: |
+          # Deploy Job Queue function
+          gcloud functions deploy manageJobQueue-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageJobQueue \
+            --trigger-http \
+            --allow-unauthenticated \
+            --project=static-sites-257923
+
+          # Deploy Generator function (requires more memory and timeout for PDF generation)
+          gcloud functions deploy manageGenerator-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageGenerator \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=1024Mi \
+            --timeout=540s \
+            --project=static-sites-257923
+
+          # Deploy Resume Upload function
+          gcloud functions deploy uploadResume-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=uploadResume \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=512Mi \
+            --project=static-sites-257923
+
+          # Deploy Content Items function
+          gcloud functions deploy manageContentItems-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageContentItems \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=256Mi \
+            --project=static-sites-257923
+
+          # Deploy Experience function
+          gcloud functions deploy manageExperience-staging \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageExperience \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=256Mi \
+            --project=static-sites-257923
 
   deploy-production:
     name: Deploy to Production
     runs-on: ubuntu-latest
     needs: test
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build
         run: npm run build
-      
-      - name: Setup Firebase CLI
-        run: npm install -g firebase-tools
-      
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_PRODUCTION }}
-      
-      - name: Deploy to Firebase Production
-        run: firebase deploy --only functions
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PRODUCTION }}
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Deploy Cloud Functions to Production
+        run: |
+          # Deploy Job Queue function
+          gcloud functions deploy manageJobQueue \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageJobQueue \
+            --trigger-http \
+            --allow-unauthenticated \
+            --project=static-sites-257923
+
+          # Deploy Generator function (requires more memory and timeout for PDF generation)
+          gcloud functions deploy manageGenerator \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageGenerator \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=1024Mi \
+            --timeout=540s \
+            --project=static-sites-257923
+
+          # Deploy Resume Upload function
+          gcloud functions deploy uploadResume \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=uploadResume \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=512Mi \
+            --project=static-sites-257923
+
+          # Deploy Content Items function
+          gcloud functions deploy manageContentItems \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageContentItems \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=256Mi \
+            --project=static-sites-257923
+
+          # Deploy Experience function
+          gcloud functions deploy manageExperience \
+            --gen2 \
+            --runtime=nodejs20 \
+            --region=us-central1 \
+            --source=. \
+            --entry-point=manageExperience \
+            --trigger-http \
+            --allow-unauthenticated \
+            --memory=256Mi \
+            --project=static-sites-257923

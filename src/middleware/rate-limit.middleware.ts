@@ -101,3 +101,60 @@ export const strictRateLimiter = rateLimit({
     })
   },
 })
+
+/**
+ * Rate limiter for experience API endpoints
+ * Moderate limits for authenticated CRUD operations
+ */
+export const experienceRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 30 : 100, // 30 requests per 15 min (prod) or 100 (dev)
+  message: {
+    success: false,
+    error: "RATE_LIMIT_EXCEEDED",
+    errorCode: "EXP_SEC_001",
+    message: "Too many requests. Please try again later.",
+  },
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => isTestEnvironment,
+  keyGenerator: (req) => getClientIp(req),
+})
+
+/**
+ * Rate limiter for generator API endpoints (public)
+ * More restrictive due to resource-intensive AI operations
+ */
+export const generatorRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 5 : 20, // 5 generations per 15 min (prod) or 20 (dev)
+  message: {
+    success: false,
+    error: "RATE_LIMIT_EXCEEDED",
+    errorCode: "GEN_SEC_001",
+    message: "Too many generation requests. Please try again later.",
+  },
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => isTestEnvironment,
+  keyGenerator: (req) => getClientIp(req),
+})
+
+/**
+ * Rate limiter for authenticated generator editor operations
+ * More permissive for logged-in users
+ */
+export const generatorEditorRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 20 : 50, // 20 requests per 15 min (prod) or 50 (dev)
+  message: {
+    success: false,
+    error: "RATE_LIMIT_EXCEEDED",
+    errorCode: "GEN_SEC_002",
+    message: "Too many requests. Please try again later.",
+  },
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => isTestEnvironment,
+  keyGenerator: (req) => getClientIp(req),
+})

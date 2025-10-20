@@ -1,6 +1,6 @@
 import { createFirestoreInstance } from "../config/firestore";
 import { createDefaultLogger } from "../utils/logger";
-import type { Logger } from "../types/logger.types";
+import type { SimpleLogger } from "../types/logger.types";
 import type {
   QueueItem,
   QueueStats,
@@ -21,11 +21,11 @@ import type {
  */
 export class JobQueueService {
   private db: FirebaseFirestore.Firestore;
-  private logger: Logger;
+  private logger: SimpleLogger;
   private readonly queueCollection = "job-queue";
   private readonly configCollection = "job-finder-config";
 
-  constructor(logger?: Logger) {
+  constructor(logger?: SimpleLogger) {
     this.db = createFirestoreInstance();
     this.logger = logger || createDefaultLogger();
   }
