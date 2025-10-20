@@ -24,7 +24,7 @@
     "@google-cloud/functions-framework": "^3.4.6",
     "@google-cloud/logging": "^11.0.0",
     "@google-cloud/secret-manager": "^5.5.0",
-    "@jsdubzw/job-finder-shared-types": "^1.0.0",
+    "@jsdubzw/job-finder-shared-types": "1.1.1",
     "cors": "^2.8.5",
     "express-rate-limit": "^8.1.0",
     "firebase-admin": "^13.5.0",
