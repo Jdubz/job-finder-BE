@@ -6,7 +6,8 @@
  */
 
 import * as functions from "firebase-functions/v2";
-import { Request, Response } from "express";
+import type { Request } from "firebase-functions/v2/https";
+import type { Response } from "express";
 import Joi from "joi";
 import { JobQueueService } from "./services/job-queue.service";
 import { verifyAuthenticatedEditor, verifyAuthenticatedUser } from "./middleware/auth.middleware";
@@ -370,7 +371,7 @@ async function handleHasPendingScrape(
  * Handle GET /status/:id - Get queue item status (public)
  */
 async function handleGetQueueStatus(
-  req: Request,
+  _req: Request,
   res: Response,
   requestId: string,
   id: string
@@ -411,7 +412,7 @@ async function handleGetQueueStatus(
  * Handle GET /stats - Get queue statistics (public)
  */
 async function handleGetStats(
-  req: Request,
+  _req: Request,
   res: Response,
   requestId: string
 ) {
@@ -441,7 +442,7 @@ async function handleGetStats(
  * Handle GET /config/stop-list - Get stop list (public, read-only)
  */
 async function handleGetStopList(
-  req: Request,
+  _req: Request,
   res: Response,
   requestId: string
 ) {
@@ -471,7 +472,7 @@ async function handleGetStopList(
  * Handle GET /config/ai-settings - Get AI settings (public, read-only)
  */
 async function handleGetAISettings(
-  req: Request,
+  _req: Request,
   res: Response,
   requestId: string
 ) {
@@ -500,7 +501,7 @@ async function handleGetAISettings(
  * Handle GET /config/queue-settings - Get queue settings (public, read-only)
  */
 async function handleGetQueueSettings(
-  req: Request,
+  _req: Request,
   res: Response,
   requestId: string
 ) {
@@ -529,7 +530,7 @@ async function handleGetQueueSettings(
  * Handle POST /retry/:id - Retry failed queue item (editor only)
  */
 async function handleRetryQueueItem(
-  req: Request,
+  _req: Request,
   res: Response,
   requestId: string,
   id: string
@@ -570,7 +571,7 @@ async function handleRetryQueueItem(
  * Handle DELETE /queue/:id - Delete queue item (editor only)
  */
 async function handleDeleteQueueItem(
-  req: Request,
+  _req: Request,
   res: Response,
   requestId: string,
   id: string
