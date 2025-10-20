@@ -226,10 +226,35 @@ Monitor function performance in:
 
 ## CI/CD
 
-GitHub Actions workflow automatically:
-1. Runs tests on pull requests
-2. Deploys to staging on merge to `staging` branch
-3. Deploys to production on merge to `main` branch
+GitHub Actions workflows provide automated testing and deployment:
+
+### Continuous Integration (CI)
+**Workflow**: `.github/workflows/ci.yml`
+- **Triggers**: Pull requests and pushes to `staging`, `main`, and `worker-*` branches
+- **Jobs**: Linting, building, and testing
+- **Purpose**: Validates code quality before merging
+
+### Staging Deployment
+**Workflow**: `.github/workflows/deploy-staging.yml`
+- **Trigger**: Automatic on push to `staging` branch
+- **Target**: Firebase Staging environment
+- **Purpose**: Auto-deploys changes to staging for testing
+
+### Production Deployment
+**Workflow**: `.github/workflows/deploy-production.yml`
+- **Triggers**: 
+  - Automatic on push to `main` branch
+  - Manual via workflow_dispatch (GitHub Actions UI)
+- **Target**: Firebase Production environment
+- **Environment Protection**: Uses GitHub environment protection rules
+- **Purpose**: Deploys to production with optional manual approval
+
+### Required GitHub Secrets
+The following secrets must be configured in repository settings:
+- `GCP_SA_KEY_STAGING` - GCP service account JSON for staging
+- `GCP_SA_KEY_PRODUCTION` - GCP service account JSON for production
+- `FIREBASE_TOKEN_STAGING` - Firebase auth token for staging
+- `FIREBASE_TOKEN_PRODUCTION` - Firebase auth token for production
 
 ## Contributing
 

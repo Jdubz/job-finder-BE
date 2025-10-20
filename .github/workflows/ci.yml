@@ -1,20 +1,19 @@
-name: CI/CD Pipeline
+name: CI
 
 on:
-  push:
-    branches:
-      - main
-      - staging
-      - 'worker-*'
   pull_request:
-    branches:
-      - main
-      - staging
+    branches: [staging, main]
+  push:
+    branches: [staging, main, 'worker-*']
 
 jobs:
   test:
-    name: Test
+    name: Test and Lint
     runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [20.x]
     
     steps:
       - name: Checkout code
@@ -23,7 +22,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: ${{ matrix.node-version }}
           cache: 'npm'
       
       - name: Install dependencies
@@ -32,11 +31,11 @@ jobs:
       - name: Run linter
         run: npm run lint
       
+      - name: Build TypeScript
+        run: npm run build
+      
       - name: Run tests
         run: npm test
-      
-      - name: Build
-        run: npm run build
       
       - name: Upload coverage
         uses: codecov/codecov-action@v3
@@ -44,73 +43,3 @@ jobs:
         with:
           file: ./coverage/lcov.info
           fail_ci_if_error: false
-
-  deploy-staging:
-    name: Deploy to Staging
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build
-        run: npm run build
-      
-      - name: Setup Firebase CLI
-        run: npm install -g firebase-tools
-      
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
-      
-      - name: Deploy to Firebase Staging
-        run: firebase deploy --only functions --project staging
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_STAGING }}
-
-  deploy-production:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: npm ci
-      
-      - name: Build
-        run: npm run build
-      
-      - name: Setup Firebase CLI
-        run: npm install -g firebase-tools
-      
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_PRODUCTION }}
-      
-      - name: Deploy to Firebase Production
-        run: firebase deploy --only functions
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PRODUCTION }}
