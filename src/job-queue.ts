@@ -690,11 +690,20 @@ async function handleUpdateStopList(
       return;
     }
 
-    await jobQueueService.updateStopList(value);
+    // Add audit trail
+    const userId = (req as any).user?.email || (req as any).user?.uid || "unknown";
+    const stopListWithAudit = {
+      ...value,
+      updatedAt: new Date().toISOString(),
+      updatedBy: userId,
+    };
+
+    await jobQueueService.updateStopList(stopListWithAudit);
 
     logger.info("Stop list updated", {
       requestId,
       companiesCount: value.excludedCompanies.length,
+      updatedBy: userId,
     });
 
     sendSuccess(
@@ -745,10 +754,19 @@ async function handleUpdateAISettings(
       return;
     }
 
-    await jobQueueService.updateAISettings(value);
+    // Add audit trail
+    const userId = (req as any).user?.email || (req as any).user?.uid || "unknown";
+    const settingsWithAudit = {
+      ...value,
+      updatedAt: new Date().toISOString(),
+      updatedBy: userId,
+    };
+
+    await jobQueueService.updateAISettings(settingsWithAudit);
 
     logger.info("AI settings updated", {
       requestId,
+      updatedBy: userId,
     });
 
     sendSuccess(
@@ -799,10 +817,19 @@ async function handleUpdateQueueSettings(
       return;
     }
 
-    await jobQueueService.updateQueueSettings(value);
+    // Add audit trail
+    const userId = (req as any).user?.email || (req as any).user?.uid || "unknown";
+    const settingsWithAudit = {
+      ...value,
+      updatedAt: new Date().toISOString(),
+      updatedBy: userId,
+    };
+
+    await jobQueueService.updateQueueSettings(settingsWithAudit);
 
     logger.info("Queue settings updated", {
       requestId,
+      updatedBy: userId,
     });
 
     sendSuccess(
