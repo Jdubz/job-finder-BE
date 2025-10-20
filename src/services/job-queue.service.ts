@@ -1,6 +1,5 @@
 import { createFirestoreInstance } from "../config/firestore";
-import { createDefaultLogger } from "../utils/logger";
-import type { Logger } from "../types/logger.types";
+import { createDefaultLogger, type Logger } from "../utils/logger";
 import type {
   QueueItem,
   QueueStats,
@@ -24,7 +23,6 @@ export class JobQueueService {
   private logger: Logger;
   private readonly queueCollection = "job-queue";
   private readonly configCollection = "job-finder-config";
-  private readonly matchesCollection = "job-matches";
 
   constructor(logger?: Logger) {
     this.db = createFirestoreInstance();
@@ -262,11 +260,8 @@ export class JobQueueService {
         processing: 0,
         success: 0,
         failed: 0,
-        byType: {
-          job: 0,
-          company: 0,
-          scrape: 0,
-        },
+        skipped: 0,
+        filtered: 0,
       };
 
       snapshot.forEach((doc) => {
@@ -277,11 +272,8 @@ export class JobQueueService {
         else if (item.status === "processing") stats.processing++;
         else if (item.status === "success") stats.success++;
         else if (item.status === "failed") stats.failed++;
-
-        // Count by type
-        if (item.type === "job") stats.byType.job++;
-        else if (item.type === "company") stats.byType.company++;
-        else if (item.type === "scrape") stats.byType.scrape++;
+        else if (item.status === "skipped") stats.skipped++;
+        else if (item.status === "filtered") stats.filtered++;
       });
 
       return stats;
@@ -482,8 +474,8 @@ export class JobQueueService {
     try {
       const stopList = await this.getStopList();
       const result: StopListCheckResult = {
-        isExcluded: false,
-        reason: null,
+        allowed: true,
+        reason: undefined,
       };
 
       // Extract domain from URL
@@ -491,7 +483,7 @@ export class JobQueueService {
 
       // Check excluded domains
       if (stopList.excludedDomains.some((d) => domain.includes(d.toLowerCase()))) {
-        result.isExcluded = true;
+        result.allowed = false;
         result.reason = "domain";
         return result;
       }
@@ -503,7 +495,7 @@ export class JobQueueService {
           lowerCompanyName.includes(company.toLowerCase())
         )
       ) {
-        result.isExcluded = true;
+        result.allowed = false;
         result.reason = "company";
         return result;
       }
@@ -514,7 +506,7 @@ export class JobQueueService {
           lowerCompanyName.includes(keyword.toLowerCase())
         )
       ) {
-        result.isExcluded = true;
+        result.allowed = false;
         result.reason = "keyword";
         return result;
       }
@@ -522,10 +514,10 @@ export class JobQueueService {
       return result;
     } catch (error) {
       this.logger.error("Failed to check stop list", { error, companyName, url });
-      // Return not excluded on error (fail open)
+      // Return allowed on error (fail open)
       return {
-        isExcluded: false,
-        reason: null,
+        allowed: true,
+        reason: undefined,
       };
     }
   }
