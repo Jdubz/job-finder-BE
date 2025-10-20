@@ -19,7 +19,7 @@ import type {
   JobMatchData,
   PersonalInfo,
   JobInfo,
-} from "@jdubzw/job-finder-shared-types"
+} from "@jsdubzw/job-finder-shared-types"
 
 /**
  * Options for generating a resume with AI

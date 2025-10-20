@@ -12,7 +12,7 @@ import * as fs from "fs/promises"
 import * as path from "path"
 import type { SimpleLogger } from "../types/logger.types"
 import { createDefaultLogger } from "../utils/logger"
-import type { ResumeContent, CoverLetterContent } from "@jdubzw/job-finder-shared-types"
+import type { ResumeContent, CoverLetterContent } from "@jsdubzw/job-finder-shared-types"
 import { formatMonthYear } from "../utils/date-format"
 
 export class PDFService {
