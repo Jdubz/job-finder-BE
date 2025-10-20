@@ -13,7 +13,13 @@ admin.initializeApp();
 // Export job queue management function
 export { manageJobQueue } from './job-queue';
 
+// Export generator functions
+export { manageGenerator } from './generator';
+export { uploadResume } from './resume';
+
+// Export content management functions
+export { manageContentItems } from './content-items';
+export { manageExperience } from './experience';
+
 // TODO: Export job matches functions
 // export { getMatches, updateMatch } from './job-matches';
-
-// TODO: Export additional functions as needed

@@ -66,6 +66,26 @@ export const DATABASE_ID = getDatabaseId()
 export const CONTACT_SUBMISSIONS_COLLECTION = "contact-submissions"
 
 /**
+ * Experience entries collection name
+ */
+export const EXPERIENCE_COLLECTION = "experience"
+
+/**
+ * Generator document collection name
+ */
+export const GENERATOR_COLLECTION = "generator-documents"
+
+/**
+ * Blurbs collection name (for resume/cover letter generation)
+ */
+export const BLURBS_COLLECTION = "blurbs"
+
+/**
+ * Content items collection name (for portfolio content management)
+ */
+export const CONTENT_ITEMS_COLLECTION = "content-items"
+
+/**
  * Validate that DATABASE_ID is set correctly
  * This runs at module load time to catch configuration errors early
  */

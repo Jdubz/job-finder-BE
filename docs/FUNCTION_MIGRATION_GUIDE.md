@@ -252,18 +252,18 @@ After migration:
 
 ## Checklist
 
-- [ ] Extract all source files from git history
-- [ ] Extract all service dependencies
-- [ ] Extract type definitions
-- [ ] Extract utility functions
-- [ ] Install additional dependencies
-- [ ] Update error codes
-- [ ] Update index.ts exports
-- [ ] Update CI/CD workflows
-- [ ] Update import paths
-- [ ] Update configuration
-- [ ] Build succeeds locally
-- [ ] Lint passes
+- [x] Extract all source files from git history
+- [x] Extract all service dependencies
+- [x] Extract type definitions
+- [x] Extract utility functions
+- [x] Install additional dependencies
+- [x] Update error codes
+- [x] Update index.ts exports
+- [x] Update CI/CD workflows
+- [x] Update import paths (not needed - relative imports work correctly)
+- [x] Update configuration (added all database collection constants)
+- [x] Build succeeds locally
+- [x] Lint passes (4 warnings, 0 errors)
 - [ ] Tests pass
 - [ ] Functions work in emulator
 - [ ] Deploy to staging succeeds
