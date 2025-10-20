@@ -1,6 +1,6 @@
 /**
  * Firebase Cloud Functions for Job Finder Application
- * 
+ *
  * This is the main entry point that exports all Cloud Functions.
  * Functions are organized by feature area and defined in separate files.
  */
