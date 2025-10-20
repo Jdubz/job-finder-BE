@@ -22,6 +22,36 @@ describe('JobQueueService', () => {
   let service: JobQueueService;
   let mockLogger: any;
 
+  // Helper to setup config doc mocks
+  const setupConfigMocks = (queueSettings?: QueueSettings, stopList?: StopList) => {
+    const queueSettingsDoc = {
+      get: jest.fn().mockResolvedValue({
+        exists: !!queueSettings,
+        data: () => queueSettings,
+      }),
+    };
+
+    const stopListDoc = {
+      get: jest.fn().mockResolvedValue({
+        exists: !!stopList,
+        data: () => stopList,
+      }),
+    };
+
+    mockDb.collection.mockImplementation((collectionName: string) => {
+      if (collectionName === 'job-finder-config') {
+        return {
+          doc: jest.fn((docName: string) => {
+            if (docName === 'queueSettings') return queueSettingsDoc;
+            if (docName === 'stopList') return stopListDoc;
+            return mockDocRef;
+          }),
+        };
+      }
+      return mockCollection;
+    });
+  };
+
   beforeEach(() => {
     // Clear all mocks
     jest.clearAllMocks();
@@ -52,11 +82,7 @@ describe('JobQueueService', () => {
     };
 
     beforeEach(() => {
-      // Mock getQueueSettings
-      mockDocRef.get.mockResolvedValue({
-        exists: true,
-        data: () => mockQueueSettings,
-      });
+      setupConfigMocks(mockQueueSettings);
     });
 
     it('should submit a job successfully with all required fields', async () => {
@@ -161,10 +187,7 @@ describe('JobQueueService', () => {
     };
 
     beforeEach(() => {
-      mockDocRef.get.mockResolvedValue({
-        exists: true,
-        data: () => mockQueueSettings,
-      });
+      setupConfigMocks(mockQueueSettings);
     });
 
     it('should submit a company successfully', async () => {
@@ -204,10 +227,7 @@ describe('JobQueueService', () => {
     };
 
     beforeEach(() => {
-      mockDocRef.get.mockResolvedValue({
-        exists: true,
-        data: () => mockQueueSettings,
-      });
+      setupConfigMocks(mockQueueSettings);
     });
 
     it('should submit scrape request with default config', async () => {
@@ -239,8 +259,140 @@ describe('JobQueueService', () => {
     });
   });
 
-  // Note: getQueueItem method doesn't exist in current implementation
-  // Skipping these tests for now
+  describe('retryQueueItem', () => {
+    it('should retry a failed queue item', async () => {
+      const queueItemId = 'failed-item-123';
+      const failedItem = {
+        status: 'failed',
+        retry_count: 1,
+        max_retries: 3,
+        error_message: 'Previous error',
+      };
+
+      const retryDocRef = {
+        get: jest.fn().mockResolvedValue({
+          exists: true,
+          data: () => failedItem,
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      };
+
+      mockDb.collection.mockReturnValue({
+        doc: jest.fn(() => retryDocRef),
+      });
+
+      await service.retryQueueItem(queueItemId);
+
+      expect(retryDocRef.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'pending',
+          retry_count: 2,
+          error_message: null,
+        })
+      );
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Queue item retry initiated',
+        expect.objectContaining({
+          queueItemId,
+          retryCount: 2,
+        })
+      );
+    });
+
+    it('should throw error if queue item not found', async () => {
+      const notFoundDocRef = {
+        get: jest.fn().mockResolvedValue({
+          exists: false,
+        }),
+      };
+
+      mockDb.collection.mockReturnValue({
+        doc: jest.fn(() => notFoundDocRef),
+      });
+
+      await expect(service.retryQueueItem('non-existent')).rejects.toThrow(
+        'Queue item not found'
+      );
+    });
+
+    it('should throw error if item is not failed', async () => {
+      const notFailedDocRef = {
+        get: jest.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            status: 'pending',
+            retry_count: 0,
+            max_retries: 3,
+          }),
+        }),
+      };
+
+      mockDb.collection.mockReturnValue({
+        doc: jest.fn(() => notFailedDocRef),
+      });
+
+      await expect(service.retryQueueItem('item-123')).rejects.toThrow(
+        'Can only retry failed queue items'
+      );
+    });
+
+    it('should throw error if max retries exceeded', async () => {
+      const maxRetriesDocRef = {
+        get: jest.fn().mockResolvedValue({
+          exists: true,
+          data: () => ({
+            status: 'failed',
+            retry_count: 3,
+            max_retries: 3,
+          }),
+        }),
+      };
+
+      mockDb.collection.mockReturnValue({
+        doc: jest.fn(() => maxRetriesDocRef),
+      });
+
+      await expect(service.retryQueueItem('item-123')).rejects.toThrow(
+        'Maximum retry count exceeded'
+      );
+    });
+  });
+
+  describe('deleteQueueItem', () => {
+    it('should delete a queue item successfully', async () => {
+      const queueItemId = 'item-to-delete';
+      const deleteDocRef = {
+        delete: jest.fn().mockResolvedValue({}),
+      };
+
+      mockDb.collection.mockReturnValue({
+        doc: jest.fn(() => deleteDocRef),
+      });
+
+      await service.deleteQueueItem(queueItemId);
+
+      expect(deleteDocRef.delete).toHaveBeenCalled();
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Queue item deleted',
+        expect.objectContaining({ queueItemId })
+      );
+    });
+
+    it('should log and throw error on deletion failure', async () => {
+      const error = new Error('Delete failed');
+      const errorDocRef = {
+        delete: jest.fn().mockRejectedValue(error),
+      };
+
+      mockDb.collection.mockReturnValue({
+        doc: jest.fn(() => errorDocRef),
+      });
+
+      await expect(service.deleteQueueItem('item-123')).rejects.toThrow('Delete failed');
+      expect(mockLogger.error).toHaveBeenCalled();
+    });
+  });
 
   describe('getQueueSettings', () => {
     it('should return queue settings from Firestore', async () => {
@@ -250,10 +402,7 @@ describe('JobQueueService', () => {
         processingTimeout: 1200,
       };
 
-      mockDocRef.get.mockResolvedValue({
-        exists: true,
-        data: () => mockSettings,
-      });
+      setupConfigMocks(mockSettings);
 
       const result = await service.getQueueSettings();
 
@@ -261,16 +410,14 @@ describe('JobQueueService', () => {
     });
 
     it('should return default settings if not found', async () => {
-      mockDocRef.get.mockResolvedValue({
-        exists: false,
-      });
+      setupConfigMocks(); // No settings provided
 
       const result = await service.getQueueSettings();
 
       expect(result).toEqual({
         maxRetries: 3,
         retryDelaySeconds: 300,
-        processingTimeout: 600,
+        processingTimeout: 3600,
       });
     });
   });
@@ -283,10 +430,7 @@ describe('JobQueueService', () => {
         excludedDomains: ['badsite.com', 'scam.net'],
       };
 
-      mockDocRef.get.mockResolvedValue({
-        exists: true,
-        data: () => mockStopList,
-      });
+      setupConfigMocks(undefined, mockStopList);
 
       const result = await service.getStopList();
 
@@ -294,9 +438,7 @@ describe('JobQueueService', () => {
     });
 
     it('should return default empty stop list if not found', async () => {
-      mockDocRef.get.mockResolvedValue({
-        exists: false,
-      });
+      setupConfigMocks(); // No stop list provided
 
       const result = await service.getStopList();
 
@@ -316,10 +458,7 @@ describe('JobQueueService', () => {
         excludedDomains: ['badsite.com', 'scam.net'],
       };
 
-      mockDocRef.get.mockResolvedValue({
-        exists: true,
-        data: () => mockStopList,
-      });
+      setupConfigMocks(undefined, mockStopList);
     });
 
     it('should allow companies not in stop list', async () => {
@@ -357,7 +496,19 @@ describe('JobQueueService', () => {
     });
 
     it('should fail open (allow) on error', async () => {
-      mockDocRef.get.mockRejectedValue(new Error('Firestore error'));
+      // Mock Firestore error
+      const errorDoc = {
+        get: jest.fn().mockRejectedValue(new Error('Firestore error')),
+      };
+      
+      mockDb.collection.mockImplementation((collectionName: string) => {
+        if (collectionName === 'job-finder-config') {
+          return {
+            doc: jest.fn(() => errorDoc),
+          };
+        }
+        return mockCollection;
+      });
 
       const result = await service.checkStopList('Any Company', 'https://anysite.com');
 

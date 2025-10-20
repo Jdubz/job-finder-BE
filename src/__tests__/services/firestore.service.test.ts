@@ -7,17 +7,19 @@
 import { FirestoreService } from '../../services/firestore.service';
 import { createMockLogger, createMockDocRef, createMockCollectionRef } from '../helpers/test-utils';
 
+// Create mocks outside before describe block
+let mockDb: any;
+let mockCollection: any;
+let mockDocRef: any;
+
 // Mock Firestore configuration
 jest.mock('../../config/firestore', () => ({
-  createFirestoreInstance: jest.fn(),
+  createFirestoreInstance: jest.fn(() => mockDb),
 }));
 
 describe('FirestoreService', () => {
   let service: FirestoreService;
   let mockLogger: any;
-  let mockDb: any;
-  let mockCollection: any;
-  let mockDocRef: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -30,9 +32,6 @@ describe('FirestoreService', () => {
     mockDb = {
       collection: jest.fn(() => mockCollection),
     };
-
-    const { createFirestoreInstance } = require('../../config/firestore');
-    createFirestoreInstance.mockReturnValue(mockDb);
 
     service = new FirestoreService(mockLogger);
   });

@@ -103,12 +103,47 @@ npm run build
 
 ### Testing
 
-Run tests:
+This project uses Jest for comprehensive testing with unit, integration, and end-to-end tests.
+
+#### Test Structure
+
+```
+src/__tests__/
+├── helpers/           # Test utilities and mocks
+│   └── test-utils.ts
+├── services/          # Unit tests for service classes
+│   ├── firestore.service.test.ts
+│   └── job-queue.service.test.ts
+├── integration/       # Integration tests (require emulators)
+│   └── firestore.test.ts
+├── e2e/              # End-to-end tests (require emulators)
+│   └── job-submission.test.ts
+└── setup.ts          # Test environment configuration
+```
+
+#### Running Tests
+
+Run all tests:
 ```bash
 npm test
 ```
 
-Run tests in watch mode:
+Run unit tests only (no emulators required):
+```bash
+npm run test:unit
+```
+
+Run integration tests (requires Firestore emulator):
+```bash
+firebase emulators:exec --only firestore "npm run test:integration"
+```
+
+Run E2E tests (requires all emulators):
+```bash
+firebase emulators:exec "npm run test:e2e"
+```
+
+Run tests in watch mode (for development):
 ```bash
 npm run test:watch
 ```
@@ -116,6 +151,59 @@ npm run test:watch
 Generate coverage report:
 ```bash
 npm run test:coverage
+```
+
+Run tests in CI mode:
+```bash
+npm run test:ci
+```
+
+#### Coverage Requirements
+
+The project maintains the following coverage thresholds:
+- **Statements**: 80%
+- **Branches**: 80%
+- **Functions**: 80%
+- **Lines**: 80%
+
+View the coverage report after running `npm run test:coverage`:
+```bash
+open coverage/lcov-report/index.html
+```
+
+#### Writing Tests
+
+**Unit Tests**: Test individual functions and services in isolation with mocked dependencies.
+```typescript
+import { JobQueueService } from '../../services/job-queue.service';
+import { createMockLogger } from '../helpers/test-utils';
+
+describe('JobQueueService', () => {
+  it('should submit a job successfully', async () => {
+    const service = new JobQueueService(createMockLogger());
+    // Test implementation
+  });
+});
+```
+
+**Integration Tests**: Test interactions with external services using emulators.
+```typescript
+// Requires Firebase emulators to be running
+describe('Firestore Integration', () => {
+  it('should create and retrieve documents', async () => {
+    // Test with real Firestore emulator
+  });
+});
+```
+
+**E2E Tests**: Test complete user workflows end-to-end.
+```typescript
+// Tests full workflow from API to database
+describe('Job Submission E2E', () => {
+  it('should submit and retrieve job status', async () => {
+    // Test complete workflow
+  });
+});
 ```
 
 ### Linting
