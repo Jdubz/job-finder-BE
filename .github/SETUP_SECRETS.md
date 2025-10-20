@@ -4,12 +4,14 @@ This guide explains how to configure the required GitHub secrets for the CI/CD p
 
 ## Required Secrets
 
-The CI/CD pipeline requires four secrets to be configured in your GitHub repository:
+The CI/CD pipeline requires six secrets to be configured in your GitHub repository:
 
 1. **GCP_SA_KEY_STAGING** - Google Cloud Platform service account for staging
 2. **GCP_SA_KEY_PRODUCTION** - Google Cloud Platform service account for production
 3. **FIREBASE_TOKEN_STAGING** - Firebase authentication token for staging
 4. **FIREBASE_TOKEN_PRODUCTION** - Firebase authentication token for production
+5. **FIREBASE_PROJECT_STAGING** - Firebase project ID for staging (e.g., `job-finder-staging`)
+6. **FIREBASE_PROJECT_PRODUCTION** - Firebase project ID for production (e.g., `job-finder-production`)
 
 ## How to Add Secrets to GitHub
 
@@ -78,16 +80,34 @@ This will open a browser for authentication. After successful login, it will out
 
 If you're using service accounts for authentication, you may not need separate Firebase tokens. In that case, you can use a placeholder value or the same value for both secrets, as the service account credentials will be used for authentication.
 
+## Setting Firebase Project IDs
+
+The project IDs should match your actual Firebase project names:
+
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Select your staging project
+3. Click the gear icon → Project settings
+4. Copy the **Project ID** (not the project name)
+5. Add this as **FIREBASE_PROJECT_STAGING** in GitHub secrets
+
+Repeat for your production project and add as **FIREBASE_PROJECT_PRODUCTION**.
+
+**Example values:**
+- FIREBASE_PROJECT_STAGING: `job-finder-staging-abc123`
+- FIREBASE_PROJECT_PRODUCTION: `job-finder-production-xyz789`
+
 ## Verifying Secrets
 
 After adding all secrets, verify they are set correctly:
 
 1. Go to **Settings** → **Secrets and variables** → **Actions**
-2. You should see four secrets listed:
+2. You should see six secrets listed:
    - GCP_SA_KEY_STAGING
    - GCP_SA_KEY_PRODUCTION
    - FIREBASE_TOKEN_STAGING
    - FIREBASE_TOKEN_PRODUCTION
+   - FIREBASE_PROJECT_STAGING
+   - FIREBASE_PROJECT_PRODUCTION
 
 ## Testing the Setup
 

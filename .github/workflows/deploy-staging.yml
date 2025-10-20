@@ -38,6 +38,6 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
       
       - name: Deploy to Firebase Staging
-        run: firebase deploy --only functions --project staging
+        run: firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_STAGING }}
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_STAGING }}

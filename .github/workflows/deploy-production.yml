@@ -42,6 +42,6 @@ jobs:
           credentials_json: ${{ secrets.GCP_SA_KEY_PRODUCTION }}
       
       - name: Deploy to Firebase Production
-        run: firebase deploy --only functions
+        run: firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_PRODUCTION }}
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN_PRODUCTION }}
