@@ -79,7 +79,7 @@ describe("generateRequestId", () => {
       const id1 = generateRequestId()
 
       // Wait a tiny bit to ensure different timestamp
-      // eslint-disable-next-line no-undef
+       
       await new Promise((resolve) => setTimeout(resolve, 5))
 
       const id2 = generateRequestId()

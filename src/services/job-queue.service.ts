@@ -1,9 +1,8 @@
 import { createFirestoreInstance } from "../config/firestore";
-import { logger as defaultLogger, createDefaultLogger } from "../utils/logger";
+import { createDefaultLogger } from "../utils/logger";
 import type { Logger } from "../types/logger.types";
 import type {
   QueueItem,
-  QueueStatus,
   QueueStats,
   StopList,
   AISettings,
