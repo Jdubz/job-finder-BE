@@ -334,7 +334,7 @@ export class JobQueueService {
         normalized = normalized.slice(0, -1)
       }
       return normalized
-    } catch (error) {
+    } catch {
       // If URL parsing fails, return original
       return url
     }
@@ -380,7 +380,7 @@ export class JobQueueService {
           this.logger.info("URL domain blocked by stop-list", { url, domain })
           return true
         }
-      } catch (error) {
+      } catch {
         // Invalid URL, skip domain check
       }
 
