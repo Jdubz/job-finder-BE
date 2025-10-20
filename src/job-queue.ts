@@ -996,8 +996,10 @@ const handleJobQueueRequest = async (req: Request, res: Response) => {
 // Export Cloud Function with 2nd gen runtime options
 export const manageJobQueue = functions.https.onRequest(
   {
-    serviceAccount: 'firebase-admin@static-sites-257923.iam.gserviceaccount.com',
     region: 'us-central1',
+    memory: '512MiB',
+    maxInstances: 10,
+    timeoutSeconds: 300,
   },
   handleJobQueueRequest
 );
