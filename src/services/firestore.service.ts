@@ -3,51 +3,13 @@ import { createFirestoreInstance } from "../config/firestore"
 import { createDefaultLogger } from "../utils/logger"
 import type { SimpleLogger } from "../types/logger.types"
 
-export interface MailgunResponse {
-  messageId: string
-  status?: string
-  accepted: boolean
-  error?: string
-  errorCode?: string
-}
-
-export interface ContactSubmission {
-  name: string
-  email: string
-  message: string
-  metadata: {
-    ip?: string
-    userAgent?: string
-    timestamp: string
-    referrer?: string
-  }
-  requestId: string
-  traceId?: string
-  spanId?: string
-  transaction: {
-    contactEmail: {
-      success: boolean
-      response?: MailgunResponse
-      error?: string
-      errorCode?: string
-    }
-    autoReply: {
-      success: boolean
-      response?: MailgunResponse
-      error?: string
-      errorCode?: string
-    }
-    errors: string[]
-  }
-  status: "new" | "read" | "replied" | "spam"
-  createdAt: Date
-  updatedAt: Date
-}
-
+/**
+ * Base Firestore service for job-finder
+ * Provides common database operations across all collections
+ */
 export class FirestoreService {
-  private db: Firestore
-  private logger: SimpleLogger
-  private collectionName = "contact-submissions"
+  protected db: Firestore
+  protected logger: SimpleLogger
 
   constructor(logger?: SimpleLogger) {
     // Use shared Firestore factory for consistent configuration
@@ -58,85 +20,28 @@ export class FirestoreService {
   }
 
   /**
-   * Save a contact form submission to Firestore
+   * Get the Firestore instance
+   * Useful for services that extend this class
    */
-  async saveContactSubmission(data: Omit<ContactSubmission, "status" | "createdAt" | "updatedAt">): Promise<string> {
-    try {
-      const now = new Date()
-
-      // Remove undefined values from metadata (Firestore doesn't allow undefined)
-      const metadata: Record<string, string> = {
-        timestamp: data.metadata.timestamp,
-      }
-      if (data.metadata.ip) metadata.ip = data.metadata.ip
-      if (data.metadata.userAgent) metadata.userAgent = data.metadata.userAgent
-      if (data.metadata.referrer) metadata.referrer = data.metadata.referrer
-
-      // Clean transaction data - remove undefined values
-      const cleanTransaction = {
-        contactEmail: {
-          success: data.transaction.contactEmail.success,
-          ...(data.transaction.contactEmail.response && { response: data.transaction.contactEmail.response }),
-          ...(data.transaction.contactEmail.error && { error: data.transaction.contactEmail.error }),
-          ...(data.transaction.contactEmail.errorCode && { errorCode: data.transaction.contactEmail.errorCode }),
-        },
-        autoReply: {
-          success: data.transaction.autoReply.success,
-          ...(data.transaction.autoReply.response && { response: data.transaction.autoReply.response }),
-          ...(data.transaction.autoReply.error && { error: data.transaction.autoReply.error }),
-          ...(data.transaction.autoReply.errorCode && { errorCode: data.transaction.autoReply.errorCode }),
-        },
-        errors: data.transaction.errors,
-      }
-
-      const submission: ContactSubmission = {
-        name: data.name,
-        email: data.email,
-        message: data.message,
-        metadata: metadata as ContactSubmission["metadata"],
-        requestId: data.requestId,
-        ...(data.traceId && { traceId: data.traceId }),
-        ...(data.spanId && { spanId: data.spanId }),
-        transaction: cleanTransaction,
-        status: "new",
-        createdAt: now,
-        updatedAt: now,
-      }
-
-      const docRef = await this.db.collection(this.collectionName).add(submission)
-
-      this.logger.info("Contact submission saved to Firestore", {
-        docId: docRef.id,
-        requestId: data.requestId,
-        email: data.email,
-        transactionErrors: data.transaction.errors.length,
-      })
-
-      return docRef.id
-    } catch (error) {
-      this.logger.error("Failed to save contact submission to Firestore", {
-        error,
-        requestId: data.requestId,
-      })
-      throw error
-    }
+  protected getDb(): Firestore {
+    return this.db
   }
 
   /**
-   * Get a contact submission by ID
+   * Get a document by ID from a collection
    */
-  async getSubmission(docId: string): Promise<ContactSubmission | null> {
+  async getDocument<T>(collectionName: string, docId: string): Promise<T | null> {
     try {
-      const docRef = this.db.collection(this.collectionName).doc(docId)
+      const docRef = this.db.collection(collectionName).doc(docId)
       const doc = await docRef.get()
 
       if (!doc.exists) {
         return null
       }
 
-      return doc.data() as ContactSubmission
+      return doc.data() as T
     } catch (error) {
-      this.logger.error("Failed to get contact submission from Firestore", {
+      this.logger.error(`Failed to get document from ${collectionName}`, {
         error,
         docId,
       })
@@ -145,48 +50,313 @@ export class FirestoreService {
   }
 
   /**
-   * Update submission status
+   * Get documents by user ID
    */
-  async updateSubmissionStatus(docId: string, status: ContactSubmission["status"]): Promise<void> {
+  async getDocumentsByUserId<T>(
+    collectionName: string,
+    userId: string,
+    limit?: number
+  ): Promise<Array<T & { id: string }>> {
     try {
-      const docRef = this.db.collection(this.collectionName).doc(docId)
-      await docRef.update({
-        status,
-        updatedAt: new Date(),
-      })
+      let query = this.db.collection(collectionName).where("userId", "==", userId).orderBy("createdAt", "desc")
 
-      this.logger.info("Contact submission status updated", {
-        docId,
-        status,
-      })
-    } catch (error) {
-      this.logger.error("Failed to update contact submission status", {
-        error,
-        docId,
-        status,
-      })
-      throw error
-    }
-  }
+      if (limit) {
+        query = query.limit(limit) as any
+      }
 
-  /**
-   * Get recent submissions
-   */
-  async getRecentSubmissions(limit = 50): Promise<Array<ContactSubmission & { id: string }>> {
-    try {
-      const snapshot = await this.db
-        .collection(this.collectionName)
-        .orderBy("createdAt", "desc")
-        .limit(limit)
-        .get()
+      const snapshot = await query.get()
 
       return snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...(doc.data() as ContactSubmission),
+        ...(doc.data() as T),
       }))
     } catch (error) {
-      this.logger.error("Failed to get recent contact submissions", { error })
+      this.logger.error(`Failed to get documents from ${collectionName} for user`, {
+        error,
+        userId,
+      })
       throw error
     }
   }
+
+  /**
+   * Create a new document in a collection
+   */
+  async createDocument<T>(collectionName: string, data: T): Promise<string> {
+    try {
+      const now = new Date()
+      const docData = {
+        ...data,
+        createdAt: now,
+        updatedAt: now,
+      }
+
+      const docRef = await this.db.collection(collectionName).add(docData)
+
+      this.logger.info(`Document created in ${collectionName}`, {
+        docId: docRef.id,
+      })
+
+      return docRef.id
+    } catch (error) {
+      this.logger.error(`Failed to create document in ${collectionName}`, {
+        error,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Update a document in a collection
+   */
+  async updateDocument(collectionName: string, docId: string, data: Partial<any>): Promise<void> {
+    try {
+      const docRef = this.db.collection(collectionName).doc(docId)
+
+      // Check if document exists
+      const doc = await docRef.get()
+      if (!doc.exists) {
+        throw new Error(`Document ${docId} not found in ${collectionName}`)
+      }
+
+      await docRef.update({
+        ...data,
+        updatedAt: new Date(),
+      })
+
+      this.logger.info(`Document updated in ${collectionName}`, {
+        docId,
+      })
+    } catch (error) {
+      this.logger.error(`Failed to update document in ${collectionName}`, {
+        error,
+        docId,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Delete a document from a collection
+   */
+  async deleteDocument(collectionName: string, docId: string): Promise<void> {
+    try {
+      const docRef = this.db.collection(collectionName).doc(docId)
+
+      // Check if document exists
+      const doc = await docRef.get()
+      if (!doc.exists) {
+        throw new Error(`Document ${docId} not found in ${collectionName}`)
+      }
+
+      await docRef.delete()
+
+      this.logger.info(`Document deleted from ${collectionName}`, {
+        docId,
+      })
+    } catch (error) {
+      this.logger.error(`Failed to delete document from ${collectionName}`, {
+        error,
+        docId,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Check if a document exists and belongs to a user
+   */
+  async verifyDocumentOwnership(collectionName: string, docId: string, userId: string): Promise<boolean> {
+    try {
+      const doc = await this.getDocument<{ userId: string }>(collectionName, docId)
+
+      if (!doc) {
+        return false
+      }
+
+      return doc.userId === userId
+    } catch (error) {
+      this.logger.error(`Failed to verify document ownership`, {
+        error,
+        collectionName,
+        docId,
+        userId,
+      })
+      return false
+    }
+  }
+
+  /**
+   * Batch delete documents
+   */
+  async batchDeleteDocuments(collectionName: string, docIds: string[]): Promise<void> {
+    try {
+      const batch = this.db.batch()
+
+      docIds.forEach((docId) => {
+        const docRef = this.db.collection(collectionName).doc(docId)
+        batch.delete(docRef)
+      })
+
+      await batch.commit()
+
+      this.logger.info(`Batch deleted ${docIds.length} documents from ${collectionName}`)
+    } catch (error) {
+      this.logger.error(`Failed to batch delete documents from ${collectionName}`, {
+        error,
+        docIds,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Get a collection reference
+   * Useful for complex queries
+   */
+  getCollection(collectionName: string) {
+    return this.db.collection(collectionName)
+  }
+
+  /**
+   * Query documents by status (for job-queue and similar collections)
+   */
+  async getDocumentsByStatus<T>(
+    collectionName: string,
+    status: string,
+    limit?: number
+  ): Promise<Array<T & { id: string }>> {
+    try {
+      let query = this.db.collection(collectionName).where("status", "==", status).orderBy("createdAt", "asc")
+
+      if (limit) {
+        query = query.limit(limit) as any
+      }
+
+      const snapshot = await query.get()
+
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as T),
+      }))
+    } catch (error) {
+      this.logger.error(`Failed to get documents by status from ${collectionName}`, {
+        error,
+        status,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Update document with specific ID (no existence check)
+   * Useful for creating or updating with a specific document ID
+   */
+  async setDocument<T>(collectionName: string, docId: string, data: T): Promise<void> {
+    try {
+      const now = new Date()
+      const docData = {
+        ...data,
+        updatedAt: now,
+      }
+
+      await this.db.collection(collectionName).doc(docId).set(docData, { merge: true })
+
+      this.logger.info(`Document set in ${collectionName}`, {
+        docId,
+      })
+    } catch (error) {
+      this.logger.error(`Failed to set document in ${collectionName}`, {
+        error,
+        docId,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Batch create documents
+   */
+  async batchCreateDocuments<T>(collectionName: string, documents: T[]): Promise<string[]> {
+    try {
+      const batch = this.db.batch()
+      const docIds: string[] = []
+      const now = new Date()
+
+      documents.forEach((data) => {
+        const docRef = this.db.collection(collectionName).doc()
+        docIds.push(docRef.id)
+        batch.set(docRef, {
+          ...data,
+          createdAt: now,
+          updatedAt: now,
+        })
+      })
+
+      await batch.commit()
+
+      this.logger.info(`Batch created ${documents.length} documents in ${collectionName}`)
+      return docIds
+    } catch (error) {
+      this.logger.error(`Failed to batch create documents in ${collectionName}`, {
+        error,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Query documents with pagination support
+   */
+  async queryDocuments<T>(
+    collectionName: string,
+    filters: Array<{ field: string; operator: any; value: any }>,
+    orderByField?: string,
+    orderDirection: "asc" | "desc" = "desc",
+    limit?: number,
+    startAfter?: any
+  ): Promise<Array<T & { id: string }>> {
+    try {
+      let query: any = this.db.collection(collectionName)
+
+      // Apply filters
+      filters.forEach((filter) => {
+        query = query.where(filter.field, filter.operator, filter.value)
+      })
+
+      // Apply ordering
+      if (orderByField) {
+        query = query.orderBy(orderByField, orderDirection)
+      }
+
+      // Apply pagination
+      if (startAfter) {
+        query = query.startAfter(startAfter)
+      }
+
+      if (limit) {
+        query = query.limit(limit)
+      }
+
+      const snapshot = await query.get()
+
+      return snapshot.docs.map((doc: any) => ({
+        id: doc.id,
+        ...(doc.data() as T),
+      }))
+    } catch (error) {
+      this.logger.error(`Failed to query documents from ${collectionName}`, {
+        error,
+        filters,
+      })
+      throw error
+    }
+  }
+}
+
+/**
+ * Helper function to get a Firestore service instance
+ */
+export function createFirestoreService(logger?: SimpleLogger): FirestoreService {
+  return new FirestoreService(logger)
 }

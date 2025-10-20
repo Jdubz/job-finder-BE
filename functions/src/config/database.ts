@@ -61,14 +61,24 @@ function getDatabaseId(): string {
 export const DATABASE_ID = getDatabaseId()
 
 /**
+ * Collection names
+ * All Firestore collection constants for the job-finder application
+ */
+
+/**
  * Job queue collection name
  */
 export const JOB_QUEUE_COLLECTION = "job-queue"
 
 /**
- * Generator documents collection name
+ * Job matches collection name (AI-analyzed job matches)
  */
-export const GENERATOR_DOCUMENTS_COLLECTION = "generator-documents"
+export const JOB_MATCHES_COLLECTION = "job-matches"
+
+/**
+ * Job finder configuration collection name
+ */
+export const JOB_FINDER_CONFIG_COLLECTION = "job-finder-config"
 
 /**
  * Content items collection name (user's resume data)
@@ -76,9 +86,43 @@ export const GENERATOR_DOCUMENTS_COLLECTION = "generator-documents"
 export const CONTENT_ITEMS_COLLECTION = "content-items"
 
 /**
- * User profiles collection name
+ * Experiences collection name (detailed work history)
+ */
+export const EXPERIENCES_COLLECTION = "experiences"
+
+/**
+ * Generation history collection name (AI document generation history)
+ */
+export const GENERATION_HISTORY_COLLECTION = "generation-history"
+
+/**
+ * User defaults collection name (user preferences and settings)
+ */
+export const USER_DEFAULTS_COLLECTION = "user-defaults"
+
+/**
+ * User profiles collection name (deprecated - use user-defaults instead)
+ * @deprecated Use USER_DEFAULTS_COLLECTION
  */
 export const USER_PROFILES_COLLECTION = "user-profiles"
+
+/**
+ * @deprecated Use GENERATION_HISTORY_COLLECTION
+ */
+export const GENERATOR_DOCUMENTS_COLLECTION = "generator-documents"
+
+/**
+ * COLLECTIONS object for easy reference
+ */
+export const COLLECTIONS = {
+  JOB_QUEUE: JOB_QUEUE_COLLECTION,
+  JOB_MATCHES: JOB_MATCHES_COLLECTION,
+  JOB_FINDER_CONFIG: JOB_FINDER_CONFIG_COLLECTION,
+  CONTENT_ITEMS: CONTENT_ITEMS_COLLECTION,
+  EXPERIENCES: EXPERIENCES_COLLECTION,
+  GENERATION_HISTORY: GENERATION_HISTORY_COLLECTION,
+  USER_DEFAULTS: USER_DEFAULTS_COLLECTION,
+} as const
 
 /**
  * Validate that DATABASE_ID is set correctly

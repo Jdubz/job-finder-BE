@@ -1,0 +1,147 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==========================================
+    // Helper Functions
+    // ==========================================
+
+    /**
+     * Check if user is authenticated
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    /**
+     * Check if user is the owner of the resource
+     */
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    /**
+     * Check if user is an editor
+     * Editors have elevated permissions for managing content
+     */
+    function isEditor() {
+      return isAuthenticated() &&
+             (request.auth.token.editor == true || 
+              request.auth.token.admin == true ||
+              request.auth.token.email_verified == true);
+    }
+
+    /**
+     * Check if user owns the document being accessed
+     */
+    function ownsDocument() {
+      return isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    /**
+     * Check if user is creating a document with their own user_id
+     */
+    function creatingOwnDocument() {
+      return isAuthenticated() && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // ==========================================
+    // Collection: job-queue
+    // ==========================================
+    // Users can submit jobs and read their own submissions
+    // Only editors can update/delete queue items
+
+    match /job-queue/{queueId} {
+      // Users can read their own submissions
+      allow read: if isAuthenticated() && 
+                     resource.data.submitted_by == request.auth.uid;
+      
+      // Users can create items with their own submitted_by
+      allow create: if isAuthenticated() && 
+                       request.resource.data.submitted_by == request.auth.uid;
+      
+      // Only editors can update or delete
+      allow update, delete: if isEditor();
+    }
+
+    // ==========================================
+    // Collection: job-matches
+    // ==========================================
+    // Users can only read their own matches
+    // Only backend (via editor role) can write
+
+    match /job-matches/{matchId} {
+      // Users can read only their own matches
+      allow read: if isAuthenticated() && 
+                     resource.data.user_id == request.auth.uid;
+      
+      // Only backend/editors can write
+      allow write: if isEditor();
+    }
+
+    // ==========================================
+    // Collection: job-finder-config
+    // ==========================================
+    // All authenticated users can read config
+    // Only editors can write
+
+    match /job-finder-config/{configDoc} {
+      allow read: if isAuthenticated();
+      allow write: if isEditor();
+    }
+
+    // ==========================================
+    // Collection: content-items
+    // ==========================================
+    // Users can read/write only their own content items
+
+    match /content-items/{itemId} {
+      allow read: if ownsDocument();
+      allow create: if creatingOwnDocument();
+      allow update, delete: if ownsDocument();
+    }
+
+    // ==========================================
+    // Collection: experiences
+    // ==========================================
+    // Users can read/write only their own experiences
+
+    match /experiences/{experienceId} {
+      allow read: if ownsDocument();
+      allow create: if creatingOwnDocument();
+      allow update, delete: if ownsDocument();
+    }
+
+    // ==========================================
+    // Collection: generation-history
+    // ==========================================
+    // Users can read only their own generation history
+    // Only backend can write
+
+    match /generation-history/{historyId} {
+      allow read: if isAuthenticated() && 
+                     resource.data.user_id == request.auth.uid;
+      allow write: if isEditor();
+    }
+
+    // ==========================================
+    // Collection: user-defaults
+    // ==========================================
+    // Users can read/write only their own preferences
+    // Document ID should match user ID
+
+    match /user-defaults/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
+    }
+
+    // ==========================================
+    // Deny all other access
+    // ==========================================
+    // Any collections not explicitly defined above are denied
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

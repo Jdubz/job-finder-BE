@@ -209,6 +209,149 @@ export class FirestoreService {
       throw error
     }
   }
+
+  /**
+   * Get a collection reference
+   * Useful for complex queries
+   */
+  getCollection(collectionName: string) {
+    return this.db.collection(collectionName)
+  }
+
+  /**
+   * Query documents by status (for job-queue and similar collections)
+   */
+  async getDocumentsByStatus<T>(
+    collectionName: string,
+    status: string,
+    limit?: number
+  ): Promise<Array<T & { id: string }>> {
+    try {
+      let query = this.db.collection(collectionName).where("status", "==", status).orderBy("createdAt", "asc")
+
+      if (limit) {
+        query = query.limit(limit) as any
+      }
+
+      const snapshot = await query.get()
+
+      return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as T),
+      }))
+    } catch (error) {
+      this.logger.error(`Failed to get documents by status from ${collectionName}`, {
+        error,
+        status,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Update document with specific ID (no existence check)
+   * Useful for creating or updating with a specific document ID
+   */
+  async setDocument<T>(collectionName: string, docId: string, data: T): Promise<void> {
+    try {
+      const now = new Date()
+      const docData = {
+        ...data,
+        updatedAt: now,
+      }
+
+      await this.db.collection(collectionName).doc(docId).set(docData, { merge: true })
+
+      this.logger.info(`Document set in ${collectionName}`, {
+        docId,
+      })
+    } catch (error) {
+      this.logger.error(`Failed to set document in ${collectionName}`, {
+        error,
+        docId,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Batch create documents
+   */
+  async batchCreateDocuments<T>(collectionName: string, documents: T[]): Promise<string[]> {
+    try {
+      const batch = this.db.batch()
+      const docIds: string[] = []
+      const now = new Date()
+
+      documents.forEach((data) => {
+        const docRef = this.db.collection(collectionName).doc()
+        docIds.push(docRef.id)
+        batch.set(docRef, {
+          ...data,
+          createdAt: now,
+          updatedAt: now,
+        })
+      })
+
+      await batch.commit()
+
+      this.logger.info(`Batch created ${documents.length} documents in ${collectionName}`)
+      return docIds
+    } catch (error) {
+      this.logger.error(`Failed to batch create documents in ${collectionName}`, {
+        error,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Query documents with pagination support
+   */
+  async queryDocuments<T>(
+    collectionName: string,
+    filters: Array<{ field: string; operator: any; value: any }>,
+    orderByField?: string,
+    orderDirection: "asc" | "desc" = "desc",
+    limit?: number,
+    startAfter?: any
+  ): Promise<Array<T & { id: string }>> {
+    try {
+      let query: any = this.db.collection(collectionName)
+
+      // Apply filters
+      filters.forEach((filter) => {
+        query = query.where(filter.field, filter.operator, filter.value)
+      })
+
+      // Apply ordering
+      if (orderByField) {
+        query = query.orderBy(orderByField, orderDirection)
+      }
+
+      // Apply pagination
+      if (startAfter) {
+        query = query.startAfter(startAfter)
+      }
+
+      if (limit) {
+        query = query.limit(limit)
+      }
+
+      const snapshot = await query.get()
+
+      return snapshot.docs.map((doc: any) => ({
+        id: doc.id,
+        ...(doc.data() as T),
+      }))
+    } catch (error) {
+      this.logger.error(`Failed to query documents from ${collectionName}`, {
+        error,
+        filters,
+      })
+      throw error
+    }
+  }
 }
 
 /**

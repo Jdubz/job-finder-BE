@@ -5,8 +5,8 @@
  *
  * Environment-based database selection:
  * - Emulator: (default)
- * - Staging: portfolio-staging
- * - Production: portfolio
+ * - Staging: job-finder-staging
+ * - Production: job-finder-production
  */
 
 import { logger } from "../utils/logger"
@@ -19,7 +19,7 @@ import { logger } from "../utils/logger"
  * 2. Emulator detection (uses "(default)")
  * 3. ENVIRONMENT variable (production/staging)
  * 4. NODE_ENV variable (fallback)
- * 5. Default to "portfolio" (production)
+ * 5. Default to "job-finder-production" (production)
  *
  * @returns {string} The database ID to use
  */
@@ -40,15 +40,15 @@ function getDatabaseId(): string {
 
   switch (environment) {
     case "staging":
-      return "portfolio-staging"
+      return "job-finder-staging"
     case "production":
-      return "portfolio"
+      return "job-finder-production"
     case "development":
     case "test":
       return "(default)"
     default:
       // Production is the safe default
-      return "portfolio"
+      return "job-finder-production"
   }
 }
 
@@ -61,9 +61,63 @@ function getDatabaseId(): string {
 export const DATABASE_ID = getDatabaseId()
 
 /**
- * Contact form submissions collection name
+ * Collection names
+ * All Firestore collection constants for the job-finder application
+ */
+
+/**
+ * Job queue collection name
+ */
+export const JOB_QUEUE_COLLECTION = "job-queue"
+
+/**
+ * Job matches collection name (AI-analyzed job matches)
+ */
+export const JOB_MATCHES_COLLECTION = "job-matches"
+
+/**
+ * Job finder configuration collection name
+ */
+export const JOB_FINDER_CONFIG_COLLECTION = "job-finder-config"
+
+/**
+ * Content items collection name (user's resume data)
+ */
+export const CONTENT_ITEMS_COLLECTION = "content-items"
+
+/**
+ * Experiences collection name (detailed work history)
+ */
+export const EXPERIENCES_COLLECTION = "experiences"
+
+/**
+ * Generation history collection name (AI document generation history)
+ */
+export const GENERATION_HISTORY_COLLECTION = "generation-history"
+
+/**
+ * User defaults collection name (user preferences and settings)
+ */
+export const USER_DEFAULTS_COLLECTION = "user-defaults"
+
+/**
+ * Contact form submissions collection name (deprecated - from portfolio)
+ * @deprecated Legacy collection from portfolio project
  */
 export const CONTACT_SUBMISSIONS_COLLECTION = "contact-submissions"
+
+/**
+ * COLLECTIONS object for easy reference
+ */
+export const COLLECTIONS = {
+  JOB_QUEUE: JOB_QUEUE_COLLECTION,
+  JOB_MATCHES: JOB_MATCHES_COLLECTION,
+  JOB_FINDER_CONFIG: JOB_FINDER_CONFIG_COLLECTION,
+  CONTENT_ITEMS: CONTENT_ITEMS_COLLECTION,
+  EXPERIENCES: EXPERIENCES_COLLECTION,
+  GENERATION_HISTORY: GENERATION_HISTORY_COLLECTION,
+  USER_DEFAULTS: USER_DEFAULTS_COLLECTION,
+} as const
 
 /**
  * Validate that DATABASE_ID is set correctly

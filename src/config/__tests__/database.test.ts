@@ -39,16 +39,16 @@ describe("Database Configuration", () => {
       expect(DATABASE_ID).toBe("(default)")
     })
 
-    it("should use portfolio-staging when ENVIRONMENT=staging", async () => {
+    it("should use job-finder-staging when ENVIRONMENT=staging", async () => {
       process.env.ENVIRONMENT = "staging"
       const { DATABASE_ID } = await import("../database")
-      expect(DATABASE_ID).toBe("portfolio-staging")
+      expect(DATABASE_ID).toBe("job-finder-staging")
     })
 
-    it("should use portfolio when ENVIRONMENT=production", async () => {
+    it("should use job-finder-production when ENVIRONMENT=production", async () => {
       process.env.ENVIRONMENT = "production"
       const { DATABASE_ID } = await import("../database")
-      expect(DATABASE_ID).toBe("portfolio")
+      expect(DATABASE_ID).toBe("job-finder-production")
     })
 
     it("should use (default) when ENVIRONMENT=development", async () => {
@@ -66,10 +66,10 @@ describe("Database Configuration", () => {
     it("should fall back to NODE_ENV when ENVIRONMENT is not set", async () => {
       process.env.NODE_ENV = "staging"
       const { DATABASE_ID } = await import("../database")
-      expect(DATABASE_ID).toBe("portfolio-staging")
+      expect(DATABASE_ID).toBe("job-finder-staging")
     })
 
-    it("should default to portfolio (production) when no env vars are set", async () => {
+    it("should default to job-finder-production when no env vars are set", async () => {
       delete process.env.ENVIRONMENT
       delete process.env.NODE_ENV
       delete process.env.FIRESTORE_DATABASE_ID
@@ -77,7 +77,7 @@ describe("Database Configuration", () => {
       delete process.env.FUNCTIONS_EMULATOR
 
       const { DATABASE_ID } = await import("../database")
-      expect(DATABASE_ID).toBe("portfolio")
+      expect(DATABASE_ID).toBe("job-finder-production")
     })
 
     it("should prioritize FIRESTORE_DATABASE_ID over emulator detection", async () => {
@@ -104,7 +104,11 @@ describe("Database Configuration", () => {
     it("should export collection names", async () => {
       process.env.ENVIRONMENT = "production"
       const config = await import("../database")
-      expect(config.CONTACT_SUBMISSIONS_COLLECTION).toBe("contact-submissions")
+      expect(config.JOB_QUEUE_COLLECTION).toBe("job-queue")
+      expect(config.JOB_MATCHES_COLLECTION).toBe("job-matches")
+      expect(config.CONTENT_ITEMS_COLLECTION).toBe("content-items")
+      expect(config.COLLECTIONS).toBeDefined()
+      expect(config.COLLECTIONS.JOB_QUEUE).toBe("job-queue")
     })
   })
 
@@ -113,7 +117,7 @@ describe("Database Configuration", () => {
       process.env.NODE_ENV = "test"
       delete process.env.ENVIRONMENT
       const { DATABASE_ID } = await import("../database")
-      expect(DATABASE_ID).not.toBe("portfolio")
+      expect(DATABASE_ID).not.toBe("job-finder-production")
       expect(DATABASE_ID).toBe("(default)")
     })
 
@@ -129,8 +133,8 @@ describe("Database Configuration", () => {
       const { DATABASE_ID: prodDb } = await import("../database")
 
       expect(stagingDb).not.toBe(prodDb)
-      expect(stagingDb).toBe("portfolio-staging")
-      expect(prodDb).toBe("portfolio")
+      expect(stagingDb).toBe("job-finder-staging")
+      expect(prodDb).toBe("job-finder-production")
     })
   })
 
