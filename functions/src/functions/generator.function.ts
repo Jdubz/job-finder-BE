@@ -214,7 +214,7 @@ export const generateDocument = onRequest(
       const result = await generatorService.generateDocuments({
         generateType: body.generateType,
         job: body.job,
-        personalInfo: personalInfo,
+        personalInfo: { ...personalInfo, accentColor: personalInfo.accentColor || "#000000" },
         experienceEntries,
         userId,
         jobMatchId: body.jobMatchId,

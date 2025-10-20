@@ -17,3 +17,8 @@
 export function generateRequestId(): string {
   return `req_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
 }
+
+/**
+ * Alias for generateRequestId for backward compatibility
+ */
+export const createRequestId = generateRequestId

@@ -6,13 +6,13 @@ import globals from 'globals';
 export default [
   eslint.configs.recommended,
   {
-    files: ['src/**/*.ts', 'functions/src/**/*.ts'],
+    files: ['functions/src/**/*.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
-        project: ['./tsconfig.json', './functions/tsconfig.json']
+        project: './functions/tsconfig.json'
       },
       globals: {
         ...globals.node,
@@ -35,6 +35,6 @@ export default [
     }
   },
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.js', 'functions/dist/']
+    ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.js', 'functions/dist/', 'src/']
   }
 ];

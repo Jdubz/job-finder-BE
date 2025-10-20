@@ -350,7 +350,7 @@ export const listContentItems = onRequest(
       const options = {
         type: parseContentItemType(req.query.type as string | string[] | undefined),
         visibility: parseVisibility(req.query.visibility as string | string[] | undefined),
-        parentId: req.query.parentId === "null" ? null : (req.query.parentId as string | undefined),
+        parentId: req.query.parentId === "null" ? undefined : (req.query.parentId as string | undefined),
         limit: parseLimit(req.query.limit as string | string[] | undefined),
       }
 
