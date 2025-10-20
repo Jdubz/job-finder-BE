@@ -8,16 +8,17 @@
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "test": "jest",
+    "test:ci": "jest --ci",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "build": "tsc",
-    "build:watch": "tsc --watch",
+    "build": "cd functions && npm run build",
+    "build:watch": "cd functions && npm run dev",
     "deploy": "firebase deploy --only functions",
     "deploy:staging": "firebase deploy --only functions --project staging",
     "logs": "firebase functions:log",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist functions/dist"
   },
   "dependencies": {
     "@google-cloud/functions-framework": "^3.4.6",

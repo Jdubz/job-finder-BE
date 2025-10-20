@@ -1,21 +1,22 @@
 import eslint from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+import globals from 'globals';
 
 export default [
   eslint.configs.recommended,
   {
-    files: ['**/*.ts'],
+    files: ['functions/src/**/*.ts'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
-        project: './tsconfig.json'
+        project: './functions/tsconfig.json'
       },
       globals: {
-        node: true,
-        es2020: true
+        ...globals.node,
+        ...globals.es2020
       }
     },
     plugins: {
@@ -29,10 +30,11 @@ export default [
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_'
       }],
-      'no-console': ['warn', { allow: ['warn', 'error'] }]
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-undef': 'off' // TypeScript handles this
     }
   },
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.js']
+    ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.js', 'functions/dist/', 'src/']
   }
 ];

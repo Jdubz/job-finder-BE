@@ -119,7 +119,7 @@ async function handleSubmitJob(
       return;
     }
 
-    const { url, companyName, companyUrl, generationId } = value;
+    const { url, companyName, generationId } = value;
 
     // Get user ID if authenticated (optional)
     const userId = (req as any).user?.uid || null;
