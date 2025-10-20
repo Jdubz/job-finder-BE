@@ -1,9 +1,5 @@
 {
   "projects": {
-    "default": "static-sites-257923",
-    "staging": "static-sites-257923",
-    "production": "static-sites-257923"
-  },
-  "targets": {},
-  "etags": {}
+    "default": "job-finder-production"
+  }
 }
