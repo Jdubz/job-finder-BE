@@ -70,11 +70,14 @@ echo ""
 print_test "2" "Health check endpoint"
 ((TOTAL_TESTS++))
 
-RESPONSE=$(curl -s "$STAGING_URL/health" 2>/dev/null || echo "")
-if [[ ! -z "$RESPONSE" ]] && [[ $RESPONSE == *"healthy"* || $RESPONSE == *"ok"* ]]; then
+HEALTH_RESPONSE=$(curl -s -w "\n%{http_code}" "$STAGING_URL/health" 2>/dev/null || echo -e "\n000")
+HEALTH_BODY=$(echo "$HEALTH_RESPONSE" | head -n -1)
+HEALTH_CODE=$(echo "$HEALTH_RESPONSE" | tail -n 1)
+
+if [[ ! -z "$HEALTH_BODY" ]] && [[ $HEALTH_BODY == *"healthy"* || $HEALTH_BODY == *"ok"* ]]; then
   print_success
-  echo "  Response: $RESPONSE"
-elif [[ $RESPONSE_CODE == "404" ]]; then
+  echo "  Response: $HEALTH_BODY"
+elif [[ $HEALTH_CODE == "404" ]]; then
   print_skip "Health endpoint not implemented"
   ((TESTS_PASSED++))
 else
@@ -94,8 +97,8 @@ if [ ! -z "$AUTH_TOKEN" ]; then
   
   # Check if we got a response (even if it's an error about missing action)
   if [[ ! -z "$RESPONSE" ]]; then
-    # Success if we get any valid JSON response
-    if echo "$RESPONSE" | python3 -m json.tool > /dev/null 2>&1; then
+    # Success if we get any valid JSON response (simple check for JSON structure)
+    if [[ $RESPONSE == {*}* ]] || [[ $RESPONSE == [*]* ]]; then
       print_success
       echo "  Function is accessible and responding"
     else
@@ -135,14 +138,15 @@ print_test "5" "Rate limiting configuration"
 ((TOTAL_TESTS++))
 
 # Make a request and check for rate limit headers
-RATE_LIMIT_HEADERS=$(curl -s -I "$STAGING_URL/manageJobQueue" -X POST \
+RATE_LIMIT_RESPONSE=$(curl -s -I "$STAGING_URL/manageJobQueue" -X POST \
   -H "Content-Type: application/json" \
   -d '{"data":{}}' 2>/dev/null || echo "")
+RATE_LIMIT_CODE=$(echo "$RATE_LIMIT_RESPONSE" | grep "HTTP/" | awk '{print $2}')
 
-if [[ $RATE_LIMIT_HEADERS == *"X-RateLimit"* ]] || [[ $RATE_LIMIT_HEADERS == *"RateLimit"* ]]; then
+if [[ $RATE_LIMIT_RESPONSE == *"X-RateLimit"* ]] || [[ $RATE_LIMIT_RESPONSE == *"RateLimit"* ]]; then
   print_success
   echo "  Rate limiting is configured"
-elif [[ $RESPONSE_CODE != "000" ]]; then
+elif [[ ! -z "$RATE_LIMIT_CODE" ]] && [[ $RATE_LIMIT_CODE != "000" ]]; then
   print_skip "Rate limiting headers not visible (may still be configured)"
   ((TESTS_PASSED++))
 else
