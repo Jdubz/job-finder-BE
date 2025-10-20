@@ -251,8 +251,7 @@ GitHub Actions workflows provide automated testing and deployment:
 
 ### Required GitHub Secrets
 The following secrets must be configured in repository settings:
-- `GCP_SA_KEY_STAGING` - GCP service account JSON for staging
-- `GCP_SA_KEY_PRODUCTION` - GCP service account JSON for production
+- `FIREBASE_SERVICE_ACCOUNT` - Firebase service account JSON (used for both staging and production)
 - `FIREBASE_TOKEN_STAGING` - Firebase auth token for staging
 - `FIREBASE_TOKEN_PRODUCTION` - Firebase auth token for production
 - `FIREBASE_PROJECT_STAGING` - Firebase project ID for staging

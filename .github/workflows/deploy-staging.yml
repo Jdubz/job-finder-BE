@@ -35,7 +35,7 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       
       - name: Deploy to Firebase Staging
         run: firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_STAGING }}

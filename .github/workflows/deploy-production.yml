@@ -39,7 +39,7 @@ jobs:
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_PRODUCTION }}
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       
       - name: Deploy to Firebase Production
         run: firebase deploy --only functions --project ${{ secrets.FIREBASE_PROJECT_PRODUCTION }}

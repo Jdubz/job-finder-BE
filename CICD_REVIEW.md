@@ -68,8 +68,9 @@ on:
   - Authenticate with GCP using staging service account
   - Deploy to Firebase staging project
 - **Secrets Required**:
-  - `GCP_SA_KEY_STAGING` - GCP service account credentials
+  - `FIREBASE_SERVICE_ACCOUNT` - Firebase service account credentials (shared)
   - `FIREBASE_TOKEN_STAGING` - Firebase authentication token
+  - `FIREBASE_PROJECT_STAGING` - Firebase project ID
 
 #### 3. **Production Deployment** (`.github/workflows/deploy-production.yml`)
 - **Job**: Deploy to Firebase Production
@@ -87,8 +88,9 @@ on:
   - Authenticate with GCP using production service account
   - Deploy to Firebase production project
 - **Secrets Required**:
-  - `GCP_SA_KEY_PRODUCTION` - GCP service account credentials
+  - `FIREBASE_SERVICE_ACCOUNT` - Firebase service account credentials (shared)
   - `FIREBASE_TOKEN_PRODUCTION` - Firebase authentication token
+  - `FIREBASE_PROJECT_PRODUCTION` - Firebase project ID
 
 ### Pipeline Architecture
 
@@ -180,10 +182,11 @@ PR status updated (pass/fail)
 
 The following secrets must be configured in the GitHub repository:
 
-1. **GCP_SA_KEY_STAGING** - Service account JSON for staging GCP project
-2. **GCP_SA_KEY_PRODUCTION** - Service account JSON for production GCP project
-3. **FIREBASE_TOKEN_STAGING** - Firebase CLI token for staging project
-4. **FIREBASE_TOKEN_PRODUCTION** - Firebase CLI token for production project
+1. **FIREBASE_SERVICE_ACCOUNT** - Firebase service account JSON (shared across staging and production)
+2. **FIREBASE_TOKEN_STAGING** - Firebase CLI token for staging project
+3. **FIREBASE_TOKEN_PRODUCTION** - Firebase CLI token for production project
+4. **FIREBASE_PROJECT_STAGING** - Firebase project ID for staging
+5. **FIREBASE_PROJECT_PRODUCTION** - Firebase project ID for production
 
 ## Key Improvements in Refactored Pipeline
 

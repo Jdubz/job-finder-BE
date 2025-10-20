@@ -4,14 +4,13 @@ This guide explains how to configure the required GitHub secrets for the CI/CD p
 
 ## Required Secrets
 
-The CI/CD pipeline requires six secrets to be configured in your GitHub repository:
+The CI/CD pipeline requires five secrets to be configured in your GitHub repository:
 
-1. **GCP_SA_KEY_STAGING** - Google Cloud Platform service account for staging
-2. **GCP_SA_KEY_PRODUCTION** - Google Cloud Platform service account for production
-3. **FIREBASE_TOKEN_STAGING** - Firebase authentication token for staging
-4. **FIREBASE_TOKEN_PRODUCTION** - Firebase authentication token for production
-5. **FIREBASE_PROJECT_STAGING** - Firebase project ID for staging (e.g., `job-finder-staging`)
-6. **FIREBASE_PROJECT_PRODUCTION** - Firebase project ID for production (e.g., `job-finder-production`)
+1. **FIREBASE_SERVICE_ACCOUNT** - Firebase service account JSON (shared across staging and production)
+2. **FIREBASE_TOKEN_STAGING** - Firebase authentication token for staging
+3. **FIREBASE_TOKEN_PRODUCTION** - Firebase authentication token for production
+4. **FIREBASE_PROJECT_STAGING** - Firebase project ID for staging (e.g., `job-finder-staging`)
+5. **FIREBASE_PROJECT_PRODUCTION** - Firebase project ID for production (e.g., `job-finder-production`)
 
 ## How to Add Secrets to GitHub
 
@@ -21,12 +20,12 @@ The CI/CD pipeline requires six secrets to be configured in your GitHub reposito
 4. Enter the secret name and value
 5. Click **Add secret**
 
-## Obtaining GCP Service Account Keys
+## Obtaining Firebase Service Account Key
 
 ### Method 1: Using GCP Console
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com)
-2. Select your staging project
+2. Select your Firebase project (works with both staging and production)
 3. Navigate to **IAM & Admin** → **Service Accounts**
 4. Find or create a service account with the following roles:
    - Firebase Admin
@@ -38,23 +37,19 @@ The CI/CD pipeline requires six secrets to be configured in your GitHub reposito
 8. Select **JSON** format
 9. Download the key file
 10. Copy the entire JSON content
-11. Paste it as the value for **GCP_SA_KEY_STAGING** in GitHub secrets
+11. Paste it as the value for **FIREBASE_SERVICE_ACCOUNT** in GitHub secrets
 
-Repeat the same process for your production project and save it as **GCP_SA_KEY_PRODUCTION**.
+**Note**: This service account is shared across both staging and production environments.
 
 ### Method 2: Using gcloud CLI
 
 ```bash
-# For staging
-gcloud iam service-accounts keys create staging-key.json \
-  --iam-account=firebase-deployer@YOUR-STAGING-PROJECT.iam.gserviceaccount.com
-
-# For production
-gcloud iam service-accounts keys create production-key.json \
-  --iam-account=firebase-deployer@YOUR-PRODUCTION-PROJECT.iam.gserviceaccount.com
+# Create a service account key
+gcloud iam service-accounts keys create firebase-key.json \
+  --iam-account=firebase-deployer@YOUR-PROJECT.iam.gserviceaccount.com
 ```
 
-Then copy the contents of these JSON files to GitHub secrets.
+Then copy the contents of this JSON file to GitHub secrets as **FIREBASE_SERVICE_ACCOUNT**.
 
 ## Obtaining Firebase Tokens
 
@@ -101,9 +96,8 @@ Repeat for your production project and add as **FIREBASE_PROJECT_PRODUCTION**.
 After adding all secrets, verify they are set correctly:
 
 1. Go to **Settings** → **Secrets and variables** → **Actions**
-2. You should see six secrets listed:
-   - GCP_SA_KEY_STAGING
-   - GCP_SA_KEY_PRODUCTION
+2. You should see five secrets listed:
+   - FIREBASE_SERVICE_ACCOUNT
    - FIREBASE_TOKEN_STAGING
    - FIREBASE_TOKEN_PRODUCTION
    - FIREBASE_PROJECT_STAGING

@@ -62,14 +62,13 @@ Successfully implemented a comprehensive CI/CD pipeline by refactoring the exist
 
 ## Required GitHub Secrets
 
-The following 6 secrets must be configured in repository settings:
+The following 5 secrets must be configured in repository settings:
 
-1. **GCP_SA_KEY_STAGING** - GCP service account JSON for staging environment
-2. **GCP_SA_KEY_PRODUCTION** - GCP service account JSON for production environment
-3. **FIREBASE_TOKEN_STAGING** - Firebase authentication token for staging
-4. **FIREBASE_TOKEN_PRODUCTION** - Firebase authentication token for production
-5. **FIREBASE_PROJECT_STAGING** - Firebase project ID for staging (e.g., `job-finder-staging`)
-6. **FIREBASE_PROJECT_PRODUCTION** - Firebase project ID for production (e.g., `job-finder-production`)
+1. **FIREBASE_SERVICE_ACCOUNT** - Firebase service account JSON (shared across staging and production)
+2. **FIREBASE_TOKEN_STAGING** - Firebase authentication token for staging
+3. **FIREBASE_TOKEN_PRODUCTION** - Firebase authentication token for production
+4. **FIREBASE_PROJECT_STAGING** - Firebase project ID for staging (e.g., `job-finder-staging`)
+5. **FIREBASE_PROJECT_PRODUCTION** - Firebase project ID for production (e.g., `job-finder-production`)
 
 See `.github/SETUP_SECRETS.md` for detailed setup instructions.
 
