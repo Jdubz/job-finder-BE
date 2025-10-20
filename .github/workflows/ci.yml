@@ -82,7 +82,7 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       
       - name: Deploy to Firebase Staging
-        run: firebase deploy --only functions
+        run: firebase deploy --only functions --project $GCLOUD_PROJECT
 
   deploy-production:
     name: Deploy to Production
@@ -118,4 +118,4 @@ jobs:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       
       - name: Deploy to Firebase Production
-        run: firebase deploy --only functions
+        run: firebase deploy --only functions --project $GCLOUD_PROJECT
