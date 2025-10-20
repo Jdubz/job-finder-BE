@@ -6,6 +6,9 @@ on:
   push:
     branches: [staging, main, 'worker-*']
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test and Lint
