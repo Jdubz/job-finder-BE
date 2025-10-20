@@ -97,6 +97,25 @@ function sendSuccess(res: functions.Response, data: any, requestId: string) {
 }
 
 /**
+ * Helper function to extract user ID from authenticated request
+ */
+function getUserId(req: functions.Request): string {
+  const user = (req as any).user;
+  return user?.email || user?.uid || "unknown";
+}
+
+/**
+ * Helper function to add audit trail to data object
+ */
+function addAuditTrail<T>(data: T, req: functions.Request): T & { updatedAt: string; updatedBy: string } {
+  return {
+    ...data,
+    updatedAt: new Date().toISOString(),
+    updatedBy: getUserId(req),
+  };
+}
+
+/**
  * Handle POST /submit - Submit job to queue (public)
  */
 async function handleSubmitJob(
@@ -691,19 +710,14 @@ async function handleUpdateStopList(
     }
 
     // Add audit trail
-    const userId = (req as any).user?.email || (req as any).user?.uid || "unknown";
-    const stopListWithAudit = {
-      ...value,
-      updatedAt: new Date().toISOString(),
-      updatedBy: userId,
-    };
+    const stopListWithAudit = addAuditTrail(value, req);
 
     await jobQueueService.updateStopList(stopListWithAudit);
 
     logger.info("Stop list updated", {
       requestId,
       companiesCount: value.excludedCompanies.length,
-      updatedBy: userId,
+      updatedBy: stopListWithAudit.updatedBy,
     });
 
     sendSuccess(
@@ -755,18 +769,13 @@ async function handleUpdateAISettings(
     }
 
     // Add audit trail
-    const userId = (req as any).user?.email || (req as any).user?.uid || "unknown";
-    const settingsWithAudit = {
-      ...value,
-      updatedAt: new Date().toISOString(),
-      updatedBy: userId,
-    };
+    const settingsWithAudit = addAuditTrail(value, req);
 
     await jobQueueService.updateAISettings(settingsWithAudit);
 
     logger.info("AI settings updated", {
       requestId,
-      updatedBy: userId,
+      updatedBy: settingsWithAudit.updatedBy,
     });
 
     sendSuccess(
@@ -818,18 +827,13 @@ async function handleUpdateQueueSettings(
     }
 
     // Add audit trail
-    const userId = (req as any).user?.email || (req as any).user?.uid || "unknown";
-    const settingsWithAudit = {
-      ...value,
-      updatedAt: new Date().toISOString(),
-      updatedBy: userId,
-    };
+    const settingsWithAudit = addAuditTrail(value, req);
 
     await jobQueueService.updateQueueSettings(settingsWithAudit);
 
     logger.info("Queue settings updated", {
       requestId,
-      updatedBy: userId,
+      updatedBy: settingsWithAudit.updatedBy,
     });
 
     sendSuccess(
