@@ -62,6 +62,11 @@ const submitScrapeSchema = Joi.object({
   }).optional(),
 });
 
+const checkStopListSchema = Joi.object({
+  companyName: Joi.string().trim().min(1).max(200).required(),
+  url: Joi.string().uri().trim().required(),
+});
+
 /**
  * Helper function to send error response
  */
@@ -525,6 +530,60 @@ async function handleGetQueueSettings(
 }
 
 /**
+ * Handle POST /config/check-stop-list - Check if company/job would be blocked (user auth required)
+ */
+async function handleCheckStopList(
+  req: functions.Request,
+  res: functions.Response,
+  requestId: string
+) {
+  try {
+    // Validate request body
+    const { error, value } = checkStopListSchema.validate(req.body);
+
+    if (error) {
+      logger.warning("Invalid check stop list request", {
+        requestId,
+        error: error.details,
+      });
+
+      sendError(
+        res,
+        400,
+        ERROR_CODES.VALIDATION_ERROR.code,
+        error.details[0].message,
+        requestId
+      );
+      return;
+    }
+
+    const { companyName, url } = value;
+
+    // Check stop list
+    const result = await jobQueueService.checkStopList(companyName, url);
+
+    logger.info("Stop list checked", {
+      requestId,
+      companyName,
+      isExcluded: result.isExcluded,
+      reason: result.reason,
+    });
+
+    sendSuccess(res, result, requestId);
+  } catch (error) {
+    logger.error("Failed to check stop list", { error, requestId });
+
+    sendError(
+      res,
+      500,
+      ERROR_CODES.INTERNAL_ERROR.code,
+      "Failed to check stop list",
+      requestId
+    );
+  }
+}
+
+/**
  * Handle POST /retry/:id - Retry failed queue item (editor only)
  */
 async function handleRetryQueueItem(
@@ -770,21 +829,22 @@ async function handleUpdateQueueSettings(
  * Cloud Function to manage job queue operations
  *
  * Routes:
- * - GET    /health                  - Health check (public)
- * - POST   /submit                  - Submit job to queue (public)
- * - POST   /submit-company          - Submit company to queue (editor only)
- * - POST   /submit-scrape           - Submit scrape request (auth required)
- * - GET    /has-pending-scrape      - Check for pending scrape (auth required)
- * - GET    /status/:id              - Get queue item status (public)
- * - GET    /stats                   - Get queue statistics (public)
- * - GET    /config/stop-list        - Get stop list (public, read-only)
- * - GET    /config/ai-settings      - Get AI settings (public, read-only)
- * - GET    /config/queue-settings   - Get queue settings (public, read-only)
- * - POST   /retry/:id               - Retry failed queue item (editor only)
- * - DELETE /queue/:id               - Delete queue item (editor only)
- * - PUT    /config/stop-list        - Update stop list (editor only)
- * - PUT    /config/ai-settings      - Update AI settings (editor only)
- * - PUT    /config/queue-settings   - Update queue settings (editor only)
+ * - GET    /health                      - Health check (public)
+ * - POST   /submit                      - Submit job to queue (public)
+ * - POST   /submit-company              - Submit company to queue (editor only)
+ * - POST   /submit-scrape               - Submit scrape request (auth required)
+ * - GET    /has-pending-scrape          - Check for pending scrape (auth required)
+ * - GET    /status/:id                  - Get queue item status (public)
+ * - GET    /stats                       - Get queue statistics (public)
+ * - GET    /config/stop-list            - Get stop list (public, read-only)
+ * - GET    /config/ai-settings          - Get AI settings (public, read-only)
+ * - GET    /config/queue-settings       - Get queue settings (public, read-only)
+ * - POST   /config/check-stop-list      - Check if job would be blocked (auth required)
+ * - POST   /retry/:id                   - Retry failed queue item (editor only)
+ * - DELETE /queue/:id                   - Delete queue item (editor only)
+ * - PUT    /config/stop-list            - Update stop list (editor only)
+ * - PUT    /config/ai-settings          - Update AI settings (editor only)
+ * - PUT    /config/queue-settings       - Update queue settings (editor only)
  */
 const handleJobQueueRequest = async (req: functions.Request, res: functions.Response) => {
   const requestId = generateRequestId();
@@ -869,7 +929,7 @@ const handleJobQueueRequest = async (req: functions.Request, res: functions.Resp
           }
 
           // Authenticated routes (require auth but not editor role)
-          const authRequiredRoutes = ["/submit-scrape", "/has-pending-scrape"];
+          const authRequiredRoutes = ["/submit-scrape", "/has-pending-scrape", "/config/check-stop-list"];
 
           if (authRequiredRoutes.some((route) => path === route)) {
             // Verify authentication
@@ -893,6 +953,13 @@ const handleJobQueueRequest = async (req: functions.Request, res: functions.Resp
             // Route: GET /has-pending-scrape
             if (req.method === "GET" && path === "/has-pending-scrape") {
               await handleHasPendingScrape(req, res, requestId);
+              resolve();
+              return;
+            }
+
+            // Route: POST /config/check-stop-list
+            if (req.method === "POST" && path === "/config/check-stop-list") {
+              await handleCheckStopList(req, res, requestId);
               resolve();
               return;
             }
