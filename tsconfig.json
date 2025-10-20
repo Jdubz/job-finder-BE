@@ -20,12 +20,11 @@
     "allowSyntheticDefaultImports": true,
     "types": ["node", "jest"]
   },
-  "include": ["src/**/*.ts"],
+  "include": [],
   "exclude": [
     "node_modules",
     "dist",
-    "functions",
-    "**/*.test.ts",
-    "**/*.spec.ts"
+    "src",
+    "functions"
   ]
 }
