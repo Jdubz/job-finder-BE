@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+functions/node_modules/
+
+# Compiled output
+functions/dist/
+*.js
+*.js.map
+!eslint.config.js
+!jest.config.js
+
+# Logs
+logs
+*.log
+npm-debug.log*
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Firebase
+.firebase/
+.runtimeconfig.json
+
+# Testing
+coverage/
+.nyc_output/
+test-results/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
