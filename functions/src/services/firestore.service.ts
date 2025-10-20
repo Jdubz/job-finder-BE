@@ -58,10 +58,13 @@ export class FirestoreService {
     limit?: number
   ): Promise<Array<T & { id: string }>> {
     try {
-      let query = this.db.collection(collectionName).where("userId", "==", userId).orderBy("createdAt", "desc")
+      let query: FirebaseFirestore.Query = this.db
+        .collection(collectionName)
+        .where("user_id", "==", userId)
+        .orderBy("createdAt", "desc")
 
       if (limit) {
-        query = query.limit(limit) as any
+        query = query.limit(limit)
       }
 
       const snapshot = await query.get()
@@ -109,7 +112,7 @@ export class FirestoreService {
   /**
    * Update a document in a collection
    */
-  async updateDocument(collectionName: string, docId: string, data: Partial<any>): Promise<void> {
+  async updateDocument(collectionName: string, docId: string, data: Partial<Record<string, unknown>>): Promise<void> {
     try {
       const docRef = this.db.collection(collectionName).doc(docId)
 
@@ -168,13 +171,13 @@ export class FirestoreService {
    */
   async verifyDocumentOwnership(collectionName: string, docId: string, userId: string): Promise<boolean> {
     try {
-      const doc = await this.getDocument<{ userId: string }>(collectionName, docId)
+      const doc = await this.getDocument<{ user_id: string }>(collectionName, docId)
 
       if (!doc) {
         return false
       }
 
-      return doc.userId === userId
+      return doc.user_id === userId
     } catch (error) {
       this.logger.error(`Failed to verify document ownership`, {
         error,
@@ -227,10 +230,13 @@ export class FirestoreService {
     limit?: number
   ): Promise<Array<T & { id: string }>> {
     try {
-      let query = this.db.collection(collectionName).where("status", "==", status).orderBy("createdAt", "asc")
+      let query: FirebaseFirestore.Query = this.db
+        .collection(collectionName)
+        .where("status", "==", status)
+        .orderBy("createdAt", "asc")
 
       if (limit) {
-        query = query.limit(limit) as any
+        query = query.limit(limit)
       }
 
       const snapshot = await query.get()
@@ -310,14 +316,14 @@ export class FirestoreService {
    */
   async queryDocuments<T>(
     collectionName: string,
-    filters: Array<{ field: string; operator: any; value: any }>,
+    filters: Array<{ field: string; operator: FirebaseFirestore.WhereFilterOp; value: unknown }>,
     orderByField?: string,
     orderDirection: "asc" | "desc" = "desc",
     limit?: number,
-    startAfter?: any
+    startAfter?: FirebaseFirestore.DocumentSnapshot
   ): Promise<Array<T & { id: string }>> {
     try {
-      let query: any = this.db.collection(collectionName)
+      let query: FirebaseFirestore.Query = this.db.collection(collectionName)
 
       // Apply filters
       filters.forEach((filter) => {
@@ -340,7 +346,7 @@ export class FirestoreService {
 
       const snapshot = await query.get()
 
-      return snapshot.docs.map((doc: any) => ({
+      return snapshot.docs.map((doc) => ({
         id: doc.id,
         ...(doc.data() as T),
       }))

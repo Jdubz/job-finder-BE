@@ -239,7 +239,7 @@ describe("FirestoreService", () => {
 
       const results = await service.getDocumentsByUserId("test-collection", "user-123")
 
-      expect(mockCollection.where).toHaveBeenCalledWith("userId", "==", "user-123")
+      expect(mockCollection.where).toHaveBeenCalledWith("user_id", "==", "user-123")
       expect(mockQuery.orderBy).toHaveBeenCalledWith("createdAt", "desc")
       expect(results).toHaveLength(1)
       expect(results[0]).toEqual({
@@ -330,7 +330,7 @@ describe("FirestoreService", () => {
 
   describe("verifyDocumentOwnership", () => {
     it("should return true when user owns the document", async () => {
-      mockSnapshot.data = jest.fn().mockReturnValue({ userId: "user-123" })
+      mockSnapshot.data = jest.fn().mockReturnValue({ user_id: "user-123" })
 
       
       const service = new FirestoreService(mockLogger)
@@ -341,7 +341,7 @@ describe("FirestoreService", () => {
     })
 
     it("should return false when user does not own the document", async () => {
-      mockSnapshot.data = jest.fn().mockReturnValue({ userId: "user-456" })
+      mockSnapshot.data = jest.fn().mockReturnValue({ user_id: "user-456" })
 
       
       const service = new FirestoreService(mockLogger)
@@ -369,8 +369,8 @@ describe("FirestoreService", () => {
       const service = new FirestoreService(mockLogger)
 
       const filters = [
-        { field: "status", operator: "==", value: "active" },
-        { field: "userId", operator: "==", value: "user-123" },
+        { field: "status", operator: "==" as FirebaseFirestore.WhereFilterOp, value: "active" },
+        { field: "userId", operator: "==" as FirebaseFirestore.WhereFilterOp, value: "user-123" },
       ]
 
       const results = await service.queryDocuments("test-collection", filters, "createdAt", "desc", 10)
@@ -386,7 +386,7 @@ describe("FirestoreService", () => {
       
       const service = new FirestoreService(mockLogger)
 
-      const lastDoc = { id: "last-doc" }
+      const lastDoc = mockSnapshot as FirebaseFirestore.DocumentSnapshot
       await service.queryDocuments("test-collection", [], "createdAt", "desc", 10, lastDoc)
 
       expect(mockQuery.startAfter).toHaveBeenCalledWith(lastDoc)

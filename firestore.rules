@@ -23,12 +23,12 @@ service cloud.firestore {
     /**
      * Check if user is an editor
      * Editors have elevated permissions for managing content
+     * NOTE: Only backend service accounts should have editor/admin claims
      */
     function isEditor() {
       return isAuthenticated() &&
              (request.auth.token.editor == true || 
-              request.auth.token.admin == true ||
-              request.auth.token.email_verified == true);
+              request.auth.token.admin == true);
     }
 
     /**
