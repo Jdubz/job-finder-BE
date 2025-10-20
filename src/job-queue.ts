@@ -6,13 +6,14 @@
  */
 
 import * as functions from "firebase-functions/v2";
+import { Request, Response } from "express";
 import Joi from "joi";
 import { JobQueueService } from "./services/job-queue.service";
 import { verifyAuthenticatedEditor, verifyAuthenticatedUser } from "./middleware/auth.middleware";
 import { logger } from "./utils/logger";
 import { generateRequestId } from "./utils/request-id";
 import { corsHandler } from "./config/cors";
-import { ERROR_CODES } from "./config/error-codes";
+import { JOB_QUEUE_ERROR_CODES } from "./config/error-codes";
 import { PACKAGE_VERSION } from "./config/versions";
 
 // Initialize service
@@ -66,7 +67,7 @@ const submitScrapeSchema = Joi.object({
  * Helper function to send error response
  */
 function sendError(
-  res: functions.Response,
+  res: Response,
   statusCode: number,
   errorCode: string,
   message: string,
@@ -83,7 +84,7 @@ function sendError(
 /**
  * Helper function to send success response
  */
-function sendSuccess(res: functions.Response, data: any, requestId: string) {
+function sendSuccess(res: Response, data: any, requestId: string) {
   res.status(200).json({
     success: true,
     data,
@@ -95,8 +96,8 @@ function sendSuccess(res: functions.Response, data: any, requestId: string) {
  * Handle POST /submit - Submit job to queue (public)
  */
 async function handleSubmitJob(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -112,7 +113,7 @@ async function handleSubmitJob(
       sendError(
         res,
         400,
-        ERROR_CODES.VALIDATION_ERROR.code,
+        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
         error.details[0].message,
         requestId
       );
@@ -155,7 +156,7 @@ async function handleSubmitJob(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to submit job",
       requestId
     );
@@ -166,8 +167,8 @@ async function handleSubmitJob(
  * Handle POST /submit-company - Submit company to queue (editor only)
  */
 async function handleSubmitCompany(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -183,7 +184,7 @@ async function handleSubmitCompany(
       sendError(
         res,
         400,
-        ERROR_CODES.VALIDATION_ERROR.code,
+        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
         error.details[0].message,
         requestId
       );
@@ -224,7 +225,7 @@ async function handleSubmitCompany(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to submit company",
       requestId
     );
@@ -235,8 +236,8 @@ async function handleSubmitCompany(
  * Handle POST /submit-scrape - Submit scrape request (auth required)
  */
 async function handleSubmitScrape(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -252,7 +253,7 @@ async function handleSubmitScrape(
       sendError(
         res,
         400,
-        ERROR_CODES.VALIDATION_ERROR.code,
+        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
         error.details[0].message,
         requestId
       );
@@ -312,7 +313,7 @@ async function handleSubmitScrape(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to submit scrape request",
       requestId
     );
@@ -323,8 +324,8 @@ async function handleSubmitScrape(
  * Handle GET /has-pending-scrape - Check for pending scrape (auth required)
  */
 async function handleHasPendingScrape(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -358,7 +359,7 @@ async function handleHasPendingScrape(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to check for pending scrape",
       requestId
     );
@@ -369,8 +370,8 @@ async function handleHasPendingScrape(
  * Handle GET /status/:id - Get queue item status (public)
  */
 async function handleGetQueueStatus(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string,
   id: string
 ) {
@@ -399,7 +400,7 @@ async function handleGetQueueStatus(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to get queue status",
       requestId
     );
@@ -410,8 +411,8 @@ async function handleGetQueueStatus(
  * Handle GET /stats - Get queue statistics (public)
  */
 async function handleGetStats(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -429,7 +430,7 @@ async function handleGetStats(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to get queue stats",
       requestId
     );
@@ -440,8 +441,8 @@ async function handleGetStats(
  * Handle GET /config/stop-list - Get stop list (public, read-only)
  */
 async function handleGetStopList(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -459,7 +460,7 @@ async function handleGetStopList(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to get stop list",
       requestId
     );
@@ -470,8 +471,8 @@ async function handleGetStopList(
  * Handle GET /config/ai-settings - Get AI settings (public, read-only)
  */
 async function handleGetAISettings(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -488,7 +489,7 @@ async function handleGetAISettings(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to get AI settings",
       requestId
     );
@@ -499,8 +500,8 @@ async function handleGetAISettings(
  * Handle GET /config/queue-settings - Get queue settings (public, read-only)
  */
 async function handleGetQueueSettings(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -517,7 +518,7 @@ async function handleGetQueueSettings(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to get queue settings",
       requestId
     );
@@ -528,8 +529,8 @@ async function handleGetQueueSettings(
  * Handle POST /retry/:id - Retry failed queue item (editor only)
  */
 async function handleRetryQueueItem(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string,
   id: string
 ) {
@@ -569,8 +570,8 @@ async function handleRetryQueueItem(
  * Handle DELETE /queue/:id - Delete queue item (editor only)
  */
 async function handleDeleteQueueItem(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string,
   id: string
 ) {
@@ -596,7 +597,7 @@ async function handleDeleteQueueItem(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to delete queue item",
       requestId
     );
@@ -607,8 +608,8 @@ async function handleDeleteQueueItem(
  * Handle PUT /config/stop-list - Update stop list (editor only)
  */
 async function handleUpdateStopList(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -624,7 +625,7 @@ async function handleUpdateStopList(
       sendError(
         res,
         400,
-        ERROR_CODES.VALIDATION_ERROR.code,
+        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
         error.details[0].message,
         requestId
       );
@@ -651,7 +652,7 @@ async function handleUpdateStopList(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to update stop list",
       requestId
     );
@@ -662,8 +663,8 @@ async function handleUpdateStopList(
  * Handle PUT /config/ai-settings - Update AI settings (editor only)
  */
 async function handleUpdateAISettings(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -679,7 +680,7 @@ async function handleUpdateAISettings(
       sendError(
         res,
         400,
-        ERROR_CODES.VALIDATION_ERROR.code,
+        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
         error.details[0].message,
         requestId
       );
@@ -705,7 +706,7 @@ async function handleUpdateAISettings(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to update AI settings",
       requestId
     );
@@ -716,8 +717,8 @@ async function handleUpdateAISettings(
  * Handle PUT /config/queue-settings - Update queue settings (editor only)
  */
 async function handleUpdateQueueSettings(
-  req: functions.Request,
-  res: functions.Response,
+  req: Request,
+  res: Response,
   requestId: string
 ) {
   try {
@@ -733,7 +734,7 @@ async function handleUpdateQueueSettings(
       sendError(
         res,
         400,
-        ERROR_CODES.VALIDATION_ERROR.code,
+        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
         error.details[0].message,
         requestId
       );
@@ -759,7 +760,7 @@ async function handleUpdateQueueSettings(
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to update queue settings",
       requestId
     );
@@ -786,7 +787,7 @@ async function handleUpdateQueueSettings(
  * - PUT    /config/ai-settings      - Update AI settings (editor only)
  * - PUT    /config/queue-settings   - Update queue settings (editor only)
  */
-const handleJobQueueRequest = async (req: functions.Request, res: functions.Response) => {
+const handleJobQueueRequest = async (req: Request, res: Response) => {
   const requestId = generateRequestId();
   (req as any).requestId = requestId;
 
@@ -985,12 +986,20 @@ const handleJobQueueRequest = async (req: functions.Request, res: functions.Resp
     sendError(
       res,
       500,
-      ERROR_CODES.INTERNAL_ERROR.code,
+      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "An unexpected error occurred",
       requestId
     );
   }
 };
 
-// Export Cloud Function
-export const manageJobQueue = functions.https.onRequest(handleJobQueueRequest);
+// Export Cloud Function with 2nd gen runtime options
+export const manageJobQueue = functions.https.onRequest(
+  {
+    region: 'us-central1',
+    memory: '512MiB',
+    maxInstances: 10,
+    timeoutSeconds: 300,
+  },
+  handleJobQueueRequest
+);
