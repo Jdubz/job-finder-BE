@@ -20,6 +20,7 @@ module.exports = {
       statements: 80,
     },
   },
+  passWithNoTests: true,
   // Clear mocks automatically between every test
   clearMocks: true,
   // Reset modules registry for each test file
