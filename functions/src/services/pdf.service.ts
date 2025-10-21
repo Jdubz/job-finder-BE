@@ -2,18 +2,17 @@
  * PDF Service
  *
  * Handles PDF generation using Puppeteer and Handlebars templates.
- * Generates professional resumes and cover letters from AI-generated content.
  */
 
 import puppeteer from "puppeteer-core"
 import chromium from "@sparticuz/chromium"
 import Handlebars from "handlebars"
+import type { TemplateDelegate as HandlebarsTemplateDelegate } from "handlebars"
 import * as fs from "fs/promises"
 import * as path from "path"
-import type { SimpleLogger } from "../types/logger.types"
 import { createDefaultLogger } from "../utils/logger"
-import type { ResumeContent, CoverLetterContent } from "@jsdubzw/job-finder-shared-types"
-import { formatMonthYear } from "../utils/date-format"
+import type { SimpleLogger } from "../types/logger.types"
+import type { ResumeContent, CoverLetterContent } from "../types/generator.types"
 
 export class PDFService {
   private logger: SimpleLogger
@@ -23,34 +22,6 @@ export class PDFService {
   constructor(logger?: SimpleLogger) {
     // Use shared logger factory
     this.logger = logger || createDefaultLogger()
-
-    // Register Handlebars helpers
-    this.registerHelpers()
-  }
-
-  /**
-   * Register Handlebars helpers for template rendering
-   */
-  private registerHelpers(): void {
-    // Format date helper (YYYY-MM -> MMM YYYY)
-    Handlebars.registerHelper("formatDate", (date: string | null | undefined) => {
-      return formatMonthYear(date)
-    })
-
-    // Join array helper
-    Handlebars.registerHelper("join", (array: string[], separator: string = ", ") => {
-      return array?.join(separator) || ""
-    })
-
-    // Conditional helper for array length
-    Handlebars.registerHelper("hasItems", (array: unknown[]) => {
-      return array && array.length > 0
-    })
-
-    // Escape HTML helper (for safety)
-    Handlebars.registerHelper("escape", (text: string) => {
-      return Handlebars.escapeExpression(text)
-    })
   }
 
   /**
@@ -71,9 +42,26 @@ export class PDFService {
         this.resumeTemplate = Handlebars.compile(templateSource)
       }
 
-      // Load logo and avatar as base64 data URLs (optional)
-      const logoDataUrl = await this.loadAssetAsDataUrl("logo.svg", "image/svg+xml")
-      const avatarDataUrl = await this.loadAssetAsDataUrl("avatar.jpg", "image/jpeg")
+      // Load logo and avatar as base64 data URLs
+      const logoPath = path.join(__dirname, "..", "templates", "assets", "logo.svg")
+      const avatarPath = path.join(__dirname, "..", "templates", "assets", "avatar.jpg")
+
+      let logoDataUrl = ""
+      let avatarDataUrl = ""
+
+      try {
+        const logoBuffer = await fs.readFile(logoPath)
+        logoDataUrl = `data:image/svg+xml;base64,${logoBuffer.toString("base64")}`
+      } catch {
+        this.logger.warning("Logo file not found, proceeding without logo")
+      }
+
+      try {
+        const avatarBuffer = await fs.readFile(avatarPath)
+        avatarDataUrl = `data:image/jpeg;base64,${avatarBuffer.toString("base64")}`
+      } catch {
+        this.logger.warning("Avatar file not found, proceeding without avatar")
+      }
 
       // Render HTML from template
       const html = this.resumeTemplate({
@@ -123,7 +111,6 @@ export class PDFService {
         new Date().toLocaleDateString("en-US", {
           year: "numeric",
           month: "short",
-          day: "numeric",
         })
 
       // Render HTML from template
@@ -150,37 +137,20 @@ export class PDFService {
   }
 
   /**
-   * Load asset file as base64 data URL
-   */
-  private async loadAssetAsDataUrl(filename: string, mimeType: string): Promise<string> {
-    try {
-      const assetPath = path.join(__dirname, "..", "templates", "assets", filename)
-      const buffer = await fs.readFile(assetPath)
-      return `data:${mimeType};base64,${buffer.toString("base64")}`
-    } catch {
-      this.logger.warning(`Asset file not found: ${filename}, proceeding without it`)
-      return ""
-    }
-  }
-
-  /**
    * Convert HTML to PDF using Puppeteer
    */
   private async htmlToPDF(html: string): Promise<Buffer> {
-    let browser = null
+    let browser: Awaited<ReturnType<typeof puppeteer.launch>> | null = null
 
     try {
       // Detect if running locally or in Cloud Functions
-      const isLocal =
-        process.env.FUNCTIONS_EMULATOR === "true" ||
-        process.env.NODE_ENV === "development" ||
-        process.env.NODE_ENV === "test"
+      const isLocal = process.env.FUNCTIONS_EMULATOR === "true" || process.env.NODE_ENV === "development"
 
       this.logger.info("Launching Puppeteer", { isLocal })
 
       if (isLocal) {
         // Local development - try to use Chrome channel first, fallback to common paths
-        const launchOptions = {
+        const launchOptions: Parameters<typeof puppeteer.launch>[0] = {
           headless: true,
           args: ["--no-sandbox", "--disable-setuid-sandbox"],
         }
@@ -259,11 +229,4 @@ export class PDFService {
       }
     }
   }
-}
-
-/**
- * Helper function to create a PDF service instance
- */
-export function createPDFService(logger?: SimpleLogger): PDFService {
-  return new PDFService(logger)
 }

@@ -3,14 +3,16 @@ import type { Request } from "express"
 import { logger } from "../utils/logger"
 
 /**
- * Rate limiting middleware for job-finder Cloud Functions
+ * Rate limiting middleware for contact form
  *
  * Prevents abuse by limiting the number of requests from a single IP address.
  *
- * Different limits for different function types:
- * - Generator functions: Conservative limits (AI operations are expensive)
- * - Job queue operations: Moderate limits (user-driven actions)
- * - Content items: Moderate limits (CRUD operations)
+ * Limits:
+ * - 5 requests per 15 minutes per IP (production)
+ * - 10 requests per 15 minutes per IP (staging/development)
+ *
+ * This is intentionally conservative to prevent spam while allowing legitimate users
+ * who might need to resubmit if they make a typo.
  */
 
 const isProduction = process.env.NODE_ENV === "production"
@@ -39,26 +41,23 @@ function getClientIp(req: Request): string {
 }
 
 /**
- * Rate limiter for generator functions (AI document generation)
- * Very conservative - AI operations are expensive
- *
- * Limits: 5 requests per 15 minutes (production), 10 requests (dev)
+ * Rate limiter configuration
  */
-export const generatorRateLimiter = rateLimit({
+export const contactFormRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 5 : 10,
+  max: isProduction ? 5 : 10, // Limit each IP to 5 (prod) or 10 (dev) requests per windowMs
   message: {
     success: false,
     error: "RATE_LIMIT_EXCEEDED",
-    errorCode: "GEN_SEC_001",
-    message: "Too many AI generation requests. Please try again later.",
+    errorCode: "CF_SEC_003",
+    message: "Too many requests. Please try again later.",
   },
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  skip: () => isTestEnvironment,
-  keyGenerator: (req) => getClientIp(req),
+  standardHeaders: "draft-7", // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skip: () => isTestEnvironment, // Skip rate limiting in tests
+  keyGenerator: (req) => getClientIp(req), // Custom IP extraction for Firebase Cloud Functions
   handler: (req, res) => {
-    logger.warning("[RateLimit] Generator rate limit exceeded", {
+    logger.warning("[RateLimit] Rate limit exceeded", {
       ip: getClientIp(req),
       path: req.path,
     })
@@ -66,83 +65,15 @@ export const generatorRateLimiter = rateLimit({
     res.status(429).json({
       success: false,
       error: "RATE_LIMIT_EXCEEDED",
-      errorCode: "GEN_SEC_001",
-      message: "Too many AI generation requests from this IP. Please try again in 15 minutes.",
+      errorCode: "CF_SEC_003",
+      message: "Too many requests from this IP. Please try again in 15 minutes.",
     })
   },
 })
 
 /**
- * Rate limiter for job queue operations
- * Moderate limits - users actively managing their job queue
- *
- * Limits: 30 requests per 15 minutes (production), 50 requests (dev)
- */
-export const jobQueueRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 30 : 50,
-  message: {
-    success: false,
-    error: "RATE_LIMIT_EXCEEDED",
-    errorCode: "JQ_SEC_001",
-    message: "Too many job queue requests. Please try again later.",
-  },
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  skip: () => isTestEnvironment,
-  keyGenerator: (req) => getClientIp(req),
-  handler: (req, res) => {
-    logger.warning("[RateLimit] Job queue rate limit exceeded", {
-      ip: getClientIp(req),
-      path: req.path,
-    })
-
-    res.status(429).json({
-      success: false,
-      error: "RATE_LIMIT_EXCEEDED",
-      errorCode: "JQ_SEC_001",
-      message: "Too many job queue requests from this IP. Please try again in 15 minutes.",
-    })
-  },
-})
-
-/**
- * Rate limiter for content items CRUD operations
- * Moderate limits - users managing their resume content
- *
- * Limits: 50 requests per 15 minutes (production), 100 requests (dev)
- */
-export const contentItemsRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isProduction ? 50 : 100,
-  message: {
-    success: false,
-    error: "RATE_LIMIT_EXCEEDED",
-    errorCode: "CONT_SEC_001",
-    message: "Too many content requests. Please try again later.",
-  },
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  skip: () => isTestEnvironment,
-  keyGenerator: (req) => getClientIp(req),
-  handler: (req, res) => {
-    logger.warning("[RateLimit] Content items rate limit exceeded", {
-      ip: getClientIp(req),
-      path: req.path,
-    })
-
-    res.status(429).json({
-      success: false,
-      error: "RATE_LIMIT_EXCEEDED",
-      errorCode: "CONT_SEC_001",
-      message: "Too many content requests from this IP. Please try again in 15 minutes.",
-    })
-  },
-})
-
-/**
- * Strict rate limiter for detected suspicious activity
- * Can be applied conditionally based on suspicious patterns
+ * More restrictive rate limiter for detected suspicious activity
+ * Can be applied conditionally based on honeypot triggers or other signals
  */
 export const strictRateLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -150,7 +81,7 @@ export const strictRateLimiter = rateLimit({
   message: {
     success: false,
     error: "RATE_LIMIT_EXCEEDED",
-    errorCode: "APP_SEC_003",
+    errorCode: "CF_SEC_004",
     message: "Access temporarily restricted. Please contact support if you believe this is an error.",
   },
   skip: () => isTestEnvironment,
@@ -165,8 +96,65 @@ export const strictRateLimiter = rateLimit({
     res.status(429).json({
       success: false,
       error: "ACCESS_RESTRICTED",
-      errorCode: "APP_SEC_003",
+      errorCode: "CF_SEC_004",
       message: "Access temporarily restricted due to suspicious activity.",
     })
   },
+})
+
+/**
+ * Rate limiter for experience API endpoints
+ * Moderate limits for authenticated CRUD operations
+ */
+export const experienceRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 30 : 100, // 30 requests per 15 min (prod) or 100 (dev)
+  message: {
+    success: false,
+    error: "RATE_LIMIT_EXCEEDED",
+    errorCode: "EXP_SEC_001",
+    message: "Too many requests. Please try again later.",
+  },
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => isTestEnvironment,
+  keyGenerator: (req) => getClientIp(req),
+})
+
+/**
+ * Rate limiter for generator API endpoints (public)
+ * More restrictive due to resource-intensive AI operations
+ */
+export const generatorRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 5 : 20, // 5 generations per 15 min (prod) or 20 (dev)
+  message: {
+    success: false,
+    error: "RATE_LIMIT_EXCEEDED",
+    errorCode: "GEN_SEC_001",
+    message: "Too many generation requests. Please try again later.",
+  },
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => isTestEnvironment,
+  keyGenerator: (req) => getClientIp(req),
+})
+
+/**
+ * Rate limiter for authenticated generator editor operations
+ * More permissive for logged-in users
+ */
+export const generatorEditorRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isProduction ? 20 : 50, // 20 requests per 15 min (prod) or 50 (dev)
+  message: {
+    success: false,
+    error: "RATE_LIMIT_EXCEEDED",
+    errorCode: "GEN_SEC_002",
+    message: "Too many requests. Please try again later.",
+  },
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skip: () => isTestEnvironment,
+  keyGenerator: (req) => getClientIp(req),
 })

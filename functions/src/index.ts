@@ -1,36 +1,25 @@
 /**
  * Firebase Cloud Functions for Job Finder Application
- *
+ * 
  * This file exports all Cloud Functions for the Job Finder backend.
- * Functions are organized by feature area.
+ * Functions are organized by feature area (job queue, matches, config, etc.)
  */
 
-import * as admin from "firebase-admin"
+import * as admin from 'firebase-admin';
 
 // Initialize Firebase Admin SDK
-admin.initializeApp()
+admin.initializeApp();
 
-// Export content items functions
-export {
-  createContentItem,
-  getContentItem,
-  listContentItems,
-  updateContentItem,
-  deleteContentItem,
-} from "./functions/content-items.function"
-
-// Export experience functions
-export {
-  createExperience,
-  getExperience,
-  listExperiences,
-  updateExperience,
-  deleteExperience,
-} from "./functions/experience.function"
+// Export job queue management function
+export { manageJobQueue } from './job-queue';
 
 // Export generator functions
-export {
-  generateDocument,
-  getGenerationRequest,
-  getGenerationResponse,
-} from "./functions/generator.function"
+export { manageGenerator } from './generator';
+export { uploadResume } from './resume';
+
+// Export content management functions
+export { manageContentItems } from './content-items';
+export { manageExperience } from './experience';
+
+// TODO: Export job matches functions
+// export { getMatches, updateMatch } from './job-matches';

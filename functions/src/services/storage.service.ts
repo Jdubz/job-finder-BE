@@ -1,27 +1,64 @@
 /**
  * Storage Service
  *
- * Handles Google Cloud Storage uploads and public URL generation for generated documents.
+ * Handles GCS uploads and public URL generation for generated documents.
  *
  * Environment-aware bucket selection:
  * - Local/Development: Uses Firebase Storage Emulator (127.0.0.1:9199)
- * - Staging: job-finder-documents-staging (publicly readable)
- * - Production: job-finder-documents (publicly readable)
+ * - Staging: joshwentworth-resumes-staging (publicly readable)
+ * - Production: joshwentworth-resumes (publicly readable)
  *
  * **PUBLIC ACCESS:** Buckets are configured with public read access, so URLs
  * never expire. Anyone with a URL can download the file, but URLs are
  * long/random and contain job application materials (not sensitive data).
+ *
+ * **IMPORTANT:** Only use `FUNCTIONS_EMULATOR === "true"` for emulator detection.
+ * Never use `NODE_ENV` or check for absence of `GCP_PROJECT`.
+ * See: docs/development/COMMON_MISTAKES.md#environment-detection-issues
+ *
+ * Documentation:
+ * - Setup Guide: docs/development/generator/GCS_ENVIRONMENT_SETUP.md
+ * - Common Mistakes: docs/development/COMMON_MISTAKES.md
  */
 
 import { Storage } from "@google-cloud/storage"
-import type { SimpleLogger } from "../types/logger.types"
-import { createDefaultLogger } from "../utils/logger"
+import type { SimpleLogger } from "../types/generator.types"
 
 export interface UploadResult {
   gcsPath: string
   filename: string
   size: number
   storageClass: "STANDARD" | "COLDLINE"
+}
+
+
+/**
+ * Get environment-aware bucket name
+ */
+function getEnvironmentBucketName(): string {
+  const functionsEmulator = process.env.FUNCTIONS_EMULATOR
+  const nodeEnv = process.env.NODE_ENV
+  const environment = process.env.ENVIRONMENT
+
+  // Only use local bucket if explicitly running in emulator
+  const isLocal = functionsEmulator === "true"
+  const isStaging = environment === "staging"
+
+  console.log("[StorageService] Environment detection:", {
+    functionsEmulator,
+    nodeEnv,
+    environment,
+    isLocal,
+    isStaging,
+  })
+
+  if (isLocal) {
+    return "joshwentworth-resumes-local" // Mock bucket for local dev
+  } else if (isStaging) {
+    return "joshwentworth-resumes-staging"
+  } else {
+    return "joshwentworth-resumes" // Production
+  }
 }
 
 export class StorageService {
@@ -31,39 +68,38 @@ export class StorageService {
   private useEmulator: boolean
 
   constructor(bucketName?: string, logger?: SimpleLogger) {
-    this.logger = logger || createDefaultLogger()
-
-    // Detect emulator ONLY via FUNCTIONS_EMULATOR env var
+    this.bucketName = bucketName || getEnvironmentBucketName()
+    // Only use emulator if FUNCTIONS_EMULATOR is explicitly set to "true"
     this.useEmulator = process.env.FUNCTIONS_EMULATOR === "true"
 
-    // Determine bucket name based on environment
-    if (bucketName) {
-      this.bucketName = bucketName
-    } else if (this.useEmulator) {
-      this.bucketName = "demo-job-finder-documents"
-    } else {
-      const environment = process.env.ENVIRONMENT || "production"
-      this.bucketName =
-        environment === "staging" ? "job-finder-documents-staging" : "job-finder-documents"
+    this.logger = logger || {
+      info: (message: string, data?: unknown) => console.log(`[INFO] ${message}`, data || ""),
+      warning: (message: string, data?: unknown) => console.warn(`[WARN] ${message}`, data || ""),
+      error: (message: string, data?: unknown) => console.error(`[ERROR] ${message}`, data || ""),
     }
 
-    // Initialize Storage client
+    // Initialize Storage with emulator support
     if (this.useEmulator) {
-      this.logger.info("[Storage] Using Firebase Storage Emulator", {
-        bucket: this.bucketName,
-      })
-
+      const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || "127.0.0.1:9199"
       this.storage = new Storage({
-        apiEndpoint: "http://127.0.0.1:9199",
-        projectId: "demo-project",
+        projectId: "static-sites-257923",
+        apiEndpoint: `http://${emulatorHost}`,
+      })
+      this.logger.info("StorageService using Firebase Storage Emulator", {
+        bucket: this.bucketName,
+        emulatorHost,
+        note: "PDFs will be stored in emulator (temporary, cleared on restart)",
       })
     } else {
-      this.logger.info("[Storage] Using GCS", {
-        bucket: this.bucketName,
-        environment: process.env.ENVIRONMENT,
+      // Explicitly set project ID for Cloud Functions
+      this.storage = new Storage({
+        projectId: "static-sites-257923",
       })
-
-      this.storage = new Storage()
+      this.logger.info("StorageService initialized for Cloud Functions", {
+        bucket: this.bucketName,
+        environment: process.env.ENVIRONMENT || "production",
+        projectId: "static-sites-257923",
+      })
     }
   }
 
@@ -76,53 +112,38 @@ export class StorageService {
     documentType: "resume" | "cover-letter"
   ): Promise<UploadResult> {
     try {
-      // Generate GCS path with date-based organization
-      const date = new Date().toISOString().split("T")[0] // YYYY-MM-DD
-      const folder = documentType === "resume" ? "resumes" : "cover-letters"
-      const gcsPath = `${folder}/${date}/${filename}`
+      const timestamp = new Date().toISOString().split("T")[0] // YYYY-MM-DD
+      const gcsPath = `${documentType}s/${timestamp}/${filename}`
 
-      this.logger.info(`Uploading ${documentType} to GCS`, {
+      const logContext = {
         gcsPath,
         size: buffer.length,
-      })
+        bucket: this.bucketName,
+        emulator: this.useEmulator,
+      }
+
+      this.logger.info("Uploading PDF", logContext)
 
       const bucket = this.storage.bucket(this.bucketName)
       const file = bucket.file(gcsPath)
 
       await file.save(buffer, {
-        contentType: "application/pdf",
         metadata: {
+          contentType: "application/pdf",
           cacheControl: "public, max-age=31536000", // 1 year cache
-          metadata: {
-            documentType,
-            uploadedAt: new Date().toISOString(),
-          },
         },
-        public: true, // Make publicly readable
       })
 
-      // Set storage class based on document type
-      // Resumes are accessed more frequently, so use STANDARD
-      // Cover letters are accessed less, so we could use COLDLINE for cost savings
-      const storageClass = documentType === "resume" ? "STANDARD" : "STANDARD"
-
-      this.logger.info(`${documentType} uploaded successfully`, {
-        gcsPath,
-        size: buffer.length,
-        storageClass,
-      })
+      this.logger.info("PDF uploaded successfully", logContext)
 
       return {
         gcsPath,
         filename,
         size: buffer.length,
-        storageClass,
+        storageClass: "STANDARD", // All new uploads start as STANDARD (lifecycle moves to COLDLINE after 90 days)
       }
     } catch (error) {
-      this.logger.error(`Failed to upload ${documentType} to GCS`, {
-        error,
-        filename,
-      })
+      this.logger.error("Failed to upload PDF", { error })
       throw new Error(`Storage upload failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -137,34 +158,41 @@ export class StorageService {
     contentType: string
   ): Promise<UploadResult> {
     try {
-      const folder = imageType === "avatar" ? "images/avatars" : "images/logos"
-      const gcsPath = `${folder}/${filename}`
+      // Validate content type
+      const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/svg+xml"]
+      if (!allowedTypes.includes(contentType)) {
+        throw new Error(`Invalid image type: ${contentType}. Allowed: ${allowedTypes.join(", ")}`)
+      }
 
-      this.logger.info(`Uploading ${imageType} to GCS`, {
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024 // 5MB
+      if (buffer.length > maxSize) {
+        throw new Error(`Image too large: ${buffer.length} bytes. Maximum: ${maxSize} bytes (5MB)`)
+      }
+
+      const gcsPath = `images/${imageType}s/${filename}`
+
+      const logContext = {
         gcsPath,
         size: buffer.length,
         contentType,
-      })
+        bucket: this.bucketName,
+        emulator: this.useEmulator,
+      }
+
+      this.logger.info("Uploading image", logContext)
 
       const bucket = this.storage.bucket(this.bucketName)
       const file = bucket.file(gcsPath)
 
       await file.save(buffer, {
-        contentType,
         metadata: {
+          contentType,
           cacheControl: "public, max-age=31536000", // 1 year cache
-          metadata: {
-            imageType,
-            uploadedAt: new Date().toISOString(),
-          },
         },
-        public: true,
       })
 
-      this.logger.info(`${imageType} uploaded successfully`, {
-        gcsPath,
-        size: buffer.length,
-      })
+      this.logger.info("Image uploaded successfully", logContext)
 
       return {
         gcsPath,
@@ -173,10 +201,7 @@ export class StorageService {
         storageClass: "STANDARD",
       }
     } catch (error) {
-      this.logger.error(`Failed to upload ${imageType} to GCS`, {
-        error,
-        filename,
-      })
+      this.logger.error("Failed to upload image", { error })
       throw new Error(`Image upload failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
@@ -187,25 +212,38 @@ export class StorageService {
    * Since buckets are configured as publicly readable, we return direct HTTPS URLs
    * that never expire.
    *
-   * @param gcsPath - Full GCS path (e.g., "resumes/YYYY-MM-DD/filename.pdf")
+   * @param gcsPath - Full GCS path (e.g., "resumes/YYYY-MM-DD/filename.pdf" or "images/avatars/avatar.jpg")
    * @returns A permanent public HTTPS URL to the file
    */
   async generatePublicUrl(gcsPath: string): Promise<string> {
     try {
+      this.logger.info("Generating public URL", {
+        gcsPath,
+        bucket: this.bucketName,
+        emulator: this.useEmulator,
+      })
+
+      // Emulator: return emulator-specific URL
       if (this.useEmulator) {
-        // Emulator URL format
-        return `http://127.0.0.1:9199/v0/b/${this.bucketName}/o/${encodeURIComponent(gcsPath)}?alt=media`
+        // Use localhost instead of 127.0.0.1 to avoid CORS issues with web app
+        const emulatorHost = process.env.FIREBASE_STORAGE_EMULATOR_HOST || "127.0.0.1:9199"
+        const browserFriendlyHost = emulatorHost.replace("127.0.0.1", "localhost")
+        const directUrl = `http://${browserFriendlyHost}/v0/b/${this.bucketName}/o/${encodeURIComponent(gcsPath)}?alt=media`
+        this.logger.info("Generated emulator direct URL", { directUrl })
+        return directUrl
       }
 
-      // Production GCS public URL format
-      // Format: https://storage.googleapis.com/{bucket}/{path}
-      return `https://storage.googleapis.com/${this.bucketName}/${encodeURIComponent(gcsPath)}`
+      // Production/Staging: return public HTTPS URL
+      // Format: https://storage.googleapis.com/BUCKET_NAME/OBJECT_PATH
+      // These URLs never expire since buckets are publicly readable
+      const publicUrl = `https://storage.googleapis.com/${this.bucketName}/${gcsPath}`
+
+      this.logger.info("Generated public URL", { publicUrl })
+
+      return publicUrl
     } catch (error) {
-      this.logger.error("Failed to generate public URL", {
-        error,
-        gcsPath,
-      })
-      throw error
+      this.logger.error("Failed to generate public URL", { error })
+      throw new Error(`URL generation failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
@@ -220,17 +258,17 @@ export class StorageService {
     resumeUrl?: string
     coverLetterUrl?: string
   }> {
-    const urls: { resumeUrl?: string; coverLetterUrl?: string } = {}
+    const result: { resumeUrl?: string; coverLetterUrl?: string } = {}
 
     if (resumePath) {
-      urls.resumeUrl = await this.generatePublicUrl(resumePath)
+      result.resumeUrl = await this.generatePublicUrl(resumePath)
     }
 
     if (coverLetterPath) {
-      urls.coverLetterUrl = await this.generatePublicUrl(coverLetterPath)
+      result.coverLetterUrl = await this.generatePublicUrl(coverLetterPath)
     }
 
-    return urls
+    return result
   }
 
   /**
@@ -243,68 +281,8 @@ export class StorageService {
       const [exists] = await file.exists()
       return exists
     } catch (error) {
-      this.logger.error("Failed to check file existence", {
-        error,
-        gcsPath,
-      })
+      this.logger.error("Failed to check file existence", { error, gcsPath })
       return false
     }
   }
-
-  /**
-   * Delete a file from GCS
-   */
-  async deleteFile(gcsPath: string): Promise<void> {
-    try {
-      const bucket = this.storage.bucket(this.bucketName)
-      const file = bucket.file(gcsPath)
-
-      await file.delete()
-
-      this.logger.info("File deleted from GCS", { gcsPath })
-    } catch (error) {
-      this.logger.error("Failed to delete file from GCS", {
-        error,
-        gcsPath,
-      })
-      throw new Error(`File deletion failed: ${error instanceof Error ? error.message : String(error)}`)
-    }
-  }
-
-  /**
-   * Get file metadata
-   */
-  async getFileMetadata(gcsPath: string): Promise<{
-    size: number
-    contentType: string
-    created: Date
-    updated: Date
-  } | null> {
-    try {
-      const bucket = this.storage.bucket(this.bucketName)
-      const file = bucket.file(gcsPath)
-
-      const [metadata] = await file.getMetadata()
-
-      return {
-        size: typeof metadata.size === "number" ? metadata.size : parseInt(metadata.size || "0", 10),
-        contentType: metadata.contentType || "application/octet-stream",
-        created: new Date(metadata.timeCreated || Date.now()),
-        updated: new Date(metadata.updated || Date.now()),
-      }
-    } catch (error) {
-      this.logger.error("Failed to get file metadata", {
-        error,
-        gcsPath,
-      })
-      return null
-    }
-  }
-}
-
-/**
- * Helper function to create a Storage service instance
- */
-export function createStorageService(bucketName?: string, logger?: SimpleLogger): StorageService {
-  return new StorageService(bucketName, logger)
 }

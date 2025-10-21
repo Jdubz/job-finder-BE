@@ -1,7 +1,7 @@
 /**
  * CORS Configuration
  *
- * Centralized CORS configuration for all job-finder Cloud Functions.
+ * Centralized CORS configuration for all Cloud Functions.
  * Allows requests from production, staging, and local development environments.
  */
 
@@ -11,9 +11,10 @@ import cors from "cors"
  * Allowed origins for CORS
  */
 export const ALLOWED_ORIGINS = [
-  "https://job-finder.joshwentworth.com",
-  "https://staging.job-finder.joshwentworth.com",
-  "http://localhost:5173", // Vite dev server
+  "https://joshwentworth.com",
+  "https://www.joshwentworth.com",
+  "https://staging.joshwentworth.com",
+  "http://localhost:8000",
   "http://localhost:3000",
 ]
 
@@ -28,27 +29,19 @@ export const DEFAULT_CORS_OPTIONS: cors.CorsOptions = {
 }
 
 /**
- * CORS options for generator functions (AI document generation)
+ * CORS options for contact form (includes App Check header)
  */
-export const GENERATOR_CORS_OPTIONS: cors.CorsOptions = {
+export const CONTACT_FORM_CORS_OPTIONS: cors.CorsOptions = {
   ...DEFAULT_CORS_OPTIONS,
-  methods: ["GET", "POST", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "OPTIONS"], // GET for health check
 }
 
 /**
- * CORS options for content items API
+ * CORS options for resume upload (POST only, GET for health check)
  */
-export const CONTENT_ITEMS_CORS_OPTIONS: cors.CorsOptions = {
+export const RESUME_UPLOAD_CORS_OPTIONS: cors.CorsOptions = {
   ...DEFAULT_CORS_OPTIONS,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-}
-
-/**
- * CORS options for job queue API
- */
-export const JOB_QUEUE_CORS_OPTIONS: cors.CorsOptions = {
-  ...DEFAULT_CORS_OPTIONS,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "OPTIONS"],
 }
 
 /**
@@ -57,16 +50,11 @@ export const JOB_QUEUE_CORS_OPTIONS: cors.CorsOptions = {
 export const corsHandler = cors(DEFAULT_CORS_OPTIONS)
 
 /**
- * Generator CORS handler
+ * Contact form CORS handler
  */
-export const generatorCorsHandler = cors(GENERATOR_CORS_OPTIONS)
+export const contactFormCorsHandler = cors(CONTACT_FORM_CORS_OPTIONS)
 
 /**
- * Content items CORS handler
+ * Resume upload CORS handler
  */
-export const contentItemsCorsHandler = cors(CONTENT_ITEMS_CORS_OPTIONS)
-
-/**
- * Job queue CORS handler
- */
-export const jobQueueCorsHandler = cors(JOB_QUEUE_CORS_OPTIONS)
+export const resumeUploadCorsHandler = cors(RESUME_UPLOAD_CORS_OPTIONS)

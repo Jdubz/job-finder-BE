@@ -1,5 +1,5 @@
 /**
- * Date formatting utilities for job-finder
+ * Date formatting utilities for resume builder
  * All dates use "MMM YYYY" format (e.g., "Dec 2020")
  */
 

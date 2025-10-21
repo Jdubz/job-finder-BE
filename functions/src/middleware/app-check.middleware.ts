@@ -77,7 +77,7 @@ export const verifyAppCheck = async (
       res.status(401).json({
         success: false,
         error: "UNAUTHORIZED",
-        errorCode: "APP_SEC_001",
+        errorCode: "CF_SEC_001",
         message: "Unauthorized: App verification failed",
       })
       return
@@ -103,7 +103,7 @@ export const verifyAppCheck = async (
     res.status(401).json({
       success: false,
       error: "UNAUTHORIZED",
-      errorCode: "APP_SEC_002",
+      errorCode: "CF_SEC_002",
       message: "Unauthorized: Invalid app verification",
     })
   }

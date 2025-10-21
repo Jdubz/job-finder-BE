@@ -1,19 +1,18 @@
 {
   "functions": [
     {
-      "source": ".",
+      "source": "functions",
       "codebase": "default",
       "ignore": [
         "node_modules",
         ".git",
         "firebase-debug.log",
         "firebase-debug.*.log",
-        "*.local",
-        "functions"
+        "*.local"
       ],
       "predeploy": [
-        "npm run lint",
-        "npm run build"
+        "npm --prefix functions run lint",
+        "npm --prefix functions run build"
       ]
     }
   ],
