@@ -14,9 +14,9 @@
  *   npm run script:remove-editor -- user789 production
  *
  * Environments:
- *   local      - Firebase emulator (localhost:8080)
+ *   local      - Firebase emulator (localhost:8080) - (default) database
  *   staging    - portfolio-staging database
- *   production - (default) database
+ *   production - portfolio database
  */
 
 import * as admin from 'firebase-admin';
@@ -36,7 +36,7 @@ const ENVIRONMENTS = {
   },
   production: {
     projectId: 'static-sites-257923',
-    database: '(default)',
+    database: 'portfolio',
     useEmulator: false,
   },
 };

@@ -17,9 +17,9 @@
 set -e  # Exit on error
 
 # Configuration
-PROD_PROJECT_ID="${PROD_PROJECT_ID:-job-finder-prod}"
+PROD_PROJECT_ID="${PROD_PROJECT_ID:-static-sites-257923}"
 STAGING_PROJECT_ID="${STAGING_PROJECT_ID:-static-sites-257923}"
-PROD_DATABASE="${PROD_DATABASE_NAME:-(default)}"
+PROD_DATABASE="${PROD_DATABASE_NAME:-portfolio}"
 STAGING_DATABASE="${STAGING_DATABASE_NAME:-portfolio-staging}"
 BUCKET_NAME="${FIRESTORE_BACKUP_BUCKET:-${STAGING_PROJECT_ID}-firestore-backups}"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
