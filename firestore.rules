@@ -210,10 +210,10 @@ service cloud.firestore {
     // ============================================================
 
     match /job-matches/{matchId} {
-      // Users can read their own matches (userId must exist)
+      // Users can read their own matches (submittedBy must match auth user)
       allow read: if isAnyRole() &&
-                     'userId' in resource.data &&
-                     resource.data.userId == request.auth.uid;
+                     'submittedBy' in resource.data &&
+                     resource.data.submittedBy == request.auth.uid;
 
       // Backend functions can write (service account)
       // User-initiated writes not allowed from client
