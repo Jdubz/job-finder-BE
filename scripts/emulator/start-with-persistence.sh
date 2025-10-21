@@ -1,7 +1,8 @@
 #!/bin/bash
 
 # Start Firebase Emulators with Persistence
-# This script starts all emulators (auth, functions, firestore, storage) with data persistence enabled
+# This script starts emulators (auth, firestore, functions, storage, ui) with data persistence enabled
+# NOTE: Hosting emulator is explicitly excluded - not needed for backend development
 
 set -e
 
@@ -25,10 +26,12 @@ fi
 if [ -d "$EXPORT_DIR/firestore_export" ] || [ -d "$EXPORT_DIR/auth_export" ]; then
   echo "✅ Found existing emulator data - will import on startup"
   firebase emulators:start \
+    --only auth,firestore,functions,storage,ui \
     --import="$EXPORT_DIR" \
     --export-on-exit="$EXPORT_DIR"
 else
   echo "ℹ️  No existing data found - starting fresh"
   firebase emulators:start \
+    --only auth,firestore,functions,storage,ui \
     --export-on-exit="$EXPORT_DIR"
 fi
