@@ -5,6 +5,8 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'mjs'],
   extensionsToTreatAsEsm: ['.ts'],
+  modulePaths: ['<rootDir>/functions/node_modules'],
+  moduleDirectories: ['node_modules', '<rootDir>/functions/node_modules'],
   collectCoverageFrom: [
     'functions/src/**/*.ts',
     '!functions/src/**/*.d.ts',

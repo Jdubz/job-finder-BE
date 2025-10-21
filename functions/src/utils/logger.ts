@@ -3,9 +3,16 @@
  *
  * Simple logger for cloud functions that automatically suppresses logs in test environments.
  * Provides consistent logging across all functions with automatic PII redaction.
+ *
+ * MIGRATION NOTE: This file now delegates to cloud-logger.ts which uses Google Cloud Logging
+ * with structured JSON logs. The SimpleLogger interface is maintained for backward compatibility.
+ *
+ * For new code, prefer using createCloudLogger() from './cloud-logger' directly for full
+ * structured logging capabilities.
  */
 
 import type { SimpleLogger } from "../types/logger.types"
+import { createLegacyLogger } from "./cloud-logger"
 
 export type Logger = SimpleLogger
 
@@ -98,55 +105,52 @@ export const redactSensitiveData = (data: unknown): unknown => {
 /**
  * Create a logger instance
  *
- * In production/development: Logs to console with automatic PII redaction
- * In test environment: Suppresses logs to keep test output clean
+ * Now delegates to Google Cloud Logging with structured JSON logs.
+ * In test environment: Uses console-based logging with JSON output.
+ * In production: Writes to Google Cloud Logging.
+ *
+ * @returns Logger instance with info, warning, error methods
  */
-export const createLogger = (): Logger => ({
-  info: (message: string, data?: unknown) => {
-    if (!isTestEnvironment) {
-      const safeData = data ? redactSensitiveData(data) : ""
-      console.log(`[INFO] ${message}`, safeData)
-    }
-  },
-  warning: (message: string, data?: unknown) => {
-    if (!isTestEnvironment) {
-      const safeData = data ? redactSensitiveData(data) : ""
-      console.warn(`[WARN] ${message}`, safeData)
-    }
-  },
-  error: (message: string, data?: unknown) => {
-    if (!isTestEnvironment) {
-      const safeData = data ? redactSensitiveData(data) : ""
-      console.error(`[ERROR] ${message}`, safeData)
-    }
-  },
-})
+export const createLogger = (): Logger => createLegacyLogger()
 
 /**
- * Create a default logger instance without PII redaction (for services)
+ * Create a default logger instance (for services)
  *
- * This is a simpler logger for use in service constructors where PII redaction
- * may not be needed (the main logger handles that). Services can optionally
- * accept a logger instance or use this as a fallback.
+ * This is an alias for createLogger() - both now use Google Cloud Logging.
+ *
+ * @returns SimpleLogger instance
  */
-export const createDefaultLogger = (): SimpleLogger => {
-  const isTestEnv = process.env.NODE_ENV === "test" || process.env.JEST_WORKER_ID !== undefined
-
-  return {
-    info: (message: string, data?: unknown) => {
-      if (!isTestEnv) console.log(`[INFO] ${message}`, data || "")
-    },
-    warning: (message: string, data?: unknown) => {
-      if (!isTestEnv) console.warn(`[WARN] ${message}`, data || "")
-    },
-    error: (message: string, data?: unknown) => {
-      if (!isTestEnv) console.error(`[ERROR] ${message}`, data || "")
-    },
-  }
-}
+export const createDefaultLogger = (): SimpleLogger => createLegacyLogger()
 
 /**
  * Default logger instance
- * Use this in most cases - includes automatic PII redaction
+ * Use this in most cases - includes automatic PII redaction and structured logging
  */
 export const logger = createLogger()
+
+/**
+ * Export Cloud Logging utilities for structured logging
+ *
+ * For new code that needs full structured logging capabilities,
+ * import these from './cloud-logger' or use them via this re-export:
+ *
+ * ```typescript
+ * import { createCloudLogger } from './utils/logger'
+ *
+ * const logger = createCloudLogger()
+ * logger.info({
+ *   category: 'api',
+ *   action: 'completed',
+ *   message: 'User submitted job',
+ *   requestId: req.requestId,
+ *   userId: req.user?.uid,
+ *   http: {
+ *     method: req.method,
+ *     path: req.path,
+ *     statusCode: 200,
+ *     duration: Date.now() - startTime
+ *   }
+ * })
+ * ```
+ */
+export { createCloudLogger, getDefaultLogger as getCloudLogger, type CloudLogger } from "./cloud-logger"
