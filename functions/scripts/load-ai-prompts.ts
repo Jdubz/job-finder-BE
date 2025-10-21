@@ -1,9 +1,26 @@
 #!/usr/bin/env tsx
 import { Firestore } from "@google-cloud/firestore"
 
-const db = new Firestore({
+// Get environment from command line args (staging, production, or local)
+const environment = process.argv[2] || "local"
+
+// Configure Firestore based on environment
+const firestoreConfig: any = {
   databaseId: "(default)",
-})
+}
+
+if (environment === "staging") {
+  firestoreConfig.projectId = "static-sites-257923"
+  console.log("🎯 Targeting STAGING environment (static-sites-257923)")
+} else if (environment === "production") {
+  firestoreConfig.projectId = process.env.PROD_PROJECT_ID || "job-finder-prod"
+  console.log(`🎯 Targeting PRODUCTION environment (${firestoreConfig.projectId})`)
+} else {
+  // Local emulator - use FIRESTORE_EMULATOR_HOST env var
+  console.log("🎯 Targeting LOCAL emulator (localhost:8080)")
+}
+
+const db = new Firestore(firestoreConfig)
 
 // Portfolio prompts (from migrate-ai-prompts.ts)
 const RESUME_SYSTEM_PROMPT = `You are a professional resume formatter with strict adherence to factual accuracy and conciseness.
@@ -99,7 +116,7 @@ Provide match score (0-100), match reason, strengths, concerns, and customizatio
     }
     
     await docRef.set(data)
-    console.log("✅ AI prompts loaded successfully!")
+    console.log(`✅ AI prompts loaded successfully to ${environment.toUpperCase()} environment!`)
   } catch (error) {
     console.error("❌ Failed to load prompts:", error)
     process.exit(1)
