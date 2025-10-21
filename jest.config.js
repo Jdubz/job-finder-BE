@@ -5,6 +5,8 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'mjs'],
   extensionsToTreatAsEsm: ['.ts'],
+  modulePaths: ['<rootDir>/functions/node_modules'],
+  moduleDirectories: ['node_modules', '<rootDir>/functions/node_modules'],
   collectCoverageFrom: [
     'functions/src/**/*.ts',
     '!functions/src/**/*.d.ts',
@@ -21,11 +23,7 @@ module.exports = {
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       useESM: true,
-      tsconfig: {
-        esModuleInterop: true,
-        allowSyntheticDefaultImports: true,
-        module: 'ESNext',
-      },
+      tsconfig: '<rootDir>/functions/tsconfig.json',
     }],
   },
   moduleNameMapper: {
