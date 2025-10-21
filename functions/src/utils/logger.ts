@@ -1,56 +1,75 @@
 /**
- * Shared Logger Utility
+ * Unified Logger
  *
- * Simple logger for cloud functions that automatically suppresses logs in test environments.
- * Provides consistent logging across all functions with automatic PII redaction.
+ * Automatically selects the appropriate logger based on environment:
+ * - Local development (Firebase emulator): Uses local-logger (file-based to /logs/backend.log)
+ * - Staging/Production (cloud): Uses cloud-logger (Google Cloud Logging SDK)
  *
- * MIGRATION NOTE: This file now delegates to cloud-logger.ts which uses Google Cloud Logging
- * with structured JSON logs. The SimpleLogger interface is maintained for backward compatibility.
+ * MIGRATION NOTE: This file now intelligently routes to the correct logger implementation.
+ * The SimpleLogger interface is maintained for backward compatibility.
  *
- * For new code, prefer using createCloudLogger() from './cloud-logger' directly for full
- * structured logging capabilities.
+ * For new code, prefer using the structured logging interface:
+ * ```typescript
+ * import { logger } from './utils/logger'
+ *
+ * logger.info({
+ *   category: 'api',
+ *   action: 'request',
+ *   message: 'Processing request',
+ *   requestId: 'req-123',
+ *   details: { jobId: 'job-456' }
+ * })
+ * ```
  */
 
-import type { SimpleLogger } from "../types/logger.types"
-import { createLegacyLogger } from "./cloud-logger"
+import type { SimpleLogger } from '../types/logger.types';
+import { createLocalLogger, createLegacyLocalLogger, type LocalLogger } from './local-logger';
+import { createCloudLogger, createLegacyLogger, type CloudLogger } from './cloud-logger';
 
-export type Logger = SimpleLogger
+export type Logger = SimpleLogger;
 
 /**
- * Check if we're in a test environment
+ * Check if running in local development environment
  */
-const isTestEnvironment = process.env.NODE_ENV === "test" || process.env.JEST_WORKER_ID !== undefined
+export function isLocalDevelopment(): boolean {
+  return (
+    process.env.NODE_ENV === 'development' ||
+    process.env.FIRESTORE_EMULATOR_HOST !== undefined ||
+    process.env.FUNCTIONS_EMULATOR === 'true' ||
+    process.env.FIREBASE_CONFIG === undefined // No Firebase config = emulator
+  );
+}
 
 /**
  * List of field names that contain sensitive data
  * These will be automatically redacted from logs
  */
 const SENSITIVE_FIELDS = [
-  "password",
-  "token",
-  "apikey",
-  "api_key",
-  "secret",
-  "authorization",
-  "auth",
-  "bearer",
-  "cookie",
-  "session",
+  'password',
+  'token',
+  'apikey',
+  'api_key',
+  'secret',
+  'authorization',
+  'auth',
+  'bearer',
+  'cookie',
+  'session',
   // PII fields
-  "email",
-  "phone",
-  "phonenumber",
-  "phone_number",
-  "ssn",
-  "creditcard",
-  "credit_card",
-  "cvv",
+  'email',
+  'phone',
+  'phonenumber',
+  'phone_number',
+  'ssn',
+  'creditcard',
+  'credit_card',
+  'cvv',
   // Firebase-specific sensitive fields
-  "idtoken",
-  "id_token",
-  "refreshtoken",
-  "refresh_token",
-]
+  'idtoken',
+  'id_token',
+  'refreshtoken',
+  'refresh_token',
+];
 
 /**
  * Redacts sensitive data from objects for safe logging
@@ -61,96 +80,104 @@ const SENSITIVE_FIELDS = [
 export const redactSensitiveData = (data: unknown): unknown => {
   // Handle primitives
   if (data === null || data === undefined) {
-    return data
+    return data;
   }
 
-  if (typeof data !== "object") {
-    return data
+  if (typeof data !== 'object') {
+    return data;
   }
 
   // Handle arrays
   if (Array.isArray(data)) {
-    return data.map((item) => redactSensitiveData(item))
+    return data.map((item) => redactSensitiveData(item));
   }
 
   // Handle objects
-  const redacted: Record<string, unknown> = {}
+  const redacted: Record<string, unknown> = {};
 
   for (const [key, value] of Object.entries(data)) {
-    const keyLower = key.toLowerCase().replace(/[_-]/g, "")
+    const keyLower = key.toLowerCase().replace(/[_-]/g, '');
 
     // Check if field name contains sensitive keywords
-    const isSensitive = SENSITIVE_FIELDS.some((field) => keyLower.includes(field))
+    const isSensitive = SENSITIVE_FIELDS.some((field) => keyLower.includes(field));
 
     if (isSensitive) {
       // Redact but show data type and length for debugging
-      if (typeof value === "string") {
-        redacted[key] = `[REDACTED_STRING:${value.length}]`
-      } else if (typeof value === "number") {
-        redacted[key] = "[REDACTED_NUMBER]"
+      if (typeof value === 'string') {
+        redacted[key] = `[REDACTED_STRING:${value.length}]`;
+      } else if (typeof value === 'number') {
+        redacted[key] = '[REDACTED_NUMBER]';
       } else {
-        redacted[key] = "[REDACTED]"
+        redacted[key] = '[REDACTED]';
       }
-    } else if (typeof value === "object" && value !== null) {
+    } else if (typeof value === 'object' && value !== null) {
       // Recursively redact nested objects
-      redacted[key] = redactSensitiveData(value)
+      redacted[key] = redactSensitiveData(value);
     } else {
-      redacted[key] = value
+      redacted[key] = value;
     }
   }
 
-  return redacted
-}
+  return redacted;
+};
 
 /**
  * Create a logger instance
  *
- * Now delegates to Google Cloud Logging with structured JSON logs.
- * In test environment: Uses console-based logging with JSON output.
- * In production: Writes to Google Cloud Logging.
+ * Automatically selects local-logger (file-based) or cloud-logger (Cloud Logging SDK)
+ * based on environment detection.
  *
  * @returns Logger instance with info, warning, error methods
  */
-export const createLogger = (): Logger => createLegacyLogger()
+export const createLogger = (): Logger => {
+  // For backward compatibility, return SimpleLogger interface
+  if (isLocalDevelopment()) {
+    return createLegacyLocalLogger();
+  } else {
+    return createLegacyLogger();
+  }
+};
 
 /**
  * Create a default logger instance (for services)
  *
- * This is an alias for createLogger() - both now use Google Cloud Logging.
+ * This is an alias for createLogger() - uses environment detection.
  *
  * @returns SimpleLogger instance
  */
-export const createDefaultLogger = (): SimpleLogger => createLegacyLogger()
+export const createDefaultLogger = (): SimpleLogger => {
+  if (isLocalDevelopment()) {
+    return createLegacyLocalLogger();
+  } else {
+    return createLegacyLogger();
+  }
+};
 
 /**
  * Default logger instance
  * Use this in most cases - includes automatic PII redaction and structured logging
+ * Automatically routes to local file or cloud logging based on environment
  */
-export const logger = createLogger()
+export const logger = createLogger();
 
 /**
- * Export Cloud Logging utilities for structured logging
- *
- * For new code that needs full structured logging capabilities,
- * import these from './cloud-logger' or use them via this re-export:
- *
- * ```typescript
- * import { createCloudLogger } from './utils/logger'
- *
- * const logger = createCloudLogger()
- * logger.info({
- *   category: 'api',
- *   action: 'completed',
- *   message: 'User submitted job',
- *   requestId: req.requestId,
- *   userId: req.user?.uid,
- *   http: {
- *     method: req.method,
- *     path: req.path,
- *     statusCode: 200,
- *     duration: Date.now() - startTime
- *   }
- * })
- * ```
+ * Unified logger type that encompasses both logger types
  */
-export { createCloudLogger, getDefaultLogger as getCloudLogger, type CloudLogger } from "./cloud-logger"
+type UnifiedLogger = LocalLogger | CloudLogger;
+
+/**
+ * Create structured logger instance based on environment
+ * Use this for full structured logging capabilities
+ */
+export function createStructuredLogger(): UnifiedLogger {
+  if (isLocalDevelopment()) {
+    return createLocalLogger();
+  } else {
+    return createCloudLogger();
+  }
+}
+
+/**
+ * Export logger types and utilities
+ */
+export { createLocalLogger, createCloudLogger, type LocalLogger, type CloudLogger };

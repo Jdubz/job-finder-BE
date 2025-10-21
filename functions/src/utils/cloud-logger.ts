@@ -53,8 +53,19 @@ const SENSITIVE_PATTERNS = {
 const isTestEnvironment = (): boolean => {
   return (
     process.env.NODE_ENV === 'test' ||
-    process.env.JEST_WORKER_ID !== undefined ||
-    process.env.FIRESTORE_EMULATOR_HOST !== undefined
+    process.env.JEST_WORKER_ID !== undefined
+  )
+}
+
+/**
+ * Check if running in local development (not test, but emulator)
+ */
+const isLocalDevelopment = (): boolean => {
+  return (
+    process.env.NODE_ENV === 'development' ||
+    process.env.FIRESTORE_EMULATOR_HOST !== undefined ||
+    process.env.FUNCTIONS_EMULATOR === 'true' ||
+    process.env.FIREBASE_CONFIG === undefined
   )
 }
 
@@ -138,7 +149,14 @@ export function createCloudLogger(
     return createConsoleLogger()
   }
 
-  // Initialize Google Cloud Logging
+  // In local development, warn and use console logger
+  // (Actual file logging is handled by local-logger.ts)
+  if (isLocalDevelopment()) {
+    console.warn('[CloudLogger] Local development detected. Consider using local-logger.ts for file-based logging.')
+    return createConsoleLogger()
+  }
+
+  // Initialize Google Cloud Logging (staging/production only)
   const logging = new Logging()
   const log = logging.log(logName)
 
