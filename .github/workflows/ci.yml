@@ -75,15 +75,19 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Deploy Functions to Staging
         run: |
+          # Activate service account for Firebase CLI
+          gcloud auth application-default print-access-token > /dev/null
+
           # Set Firebase project
           firebase use static-sites-257923
 
           # Deploy all functions to staging
-          firebase deploy --only functions --project static-sites-257923
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          firebase deploy --only functions --project static-sites-257923 --non-interactive
 
   deploy-production:
     name: Deploy to Production
@@ -115,12 +119,16 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
 
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
       - name: Deploy Functions to Production
         run: |
+          # Activate service account for Firebase CLI
+          gcloud auth application-default print-access-token > /dev/null
+
           # Set Firebase project
           firebase use static-sites-257923
 
           # Deploy all functions to production
-          firebase deploy --only functions --project static-sites-257923
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          firebase deploy --only functions --project static-sites-257923 --non-interactive
