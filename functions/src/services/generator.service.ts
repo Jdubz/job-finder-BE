@@ -403,7 +403,7 @@ export class GeneratorService {
       // Add a small delay to allow Firestore listeners to catch up
       // This ensures the frontend sees intermediate progress states
       // In production, this could be removed if we switch to async processing
-      // eslint-disable-next-line no-undef
+       
       await new Promise((resolve) => setTimeout(resolve, 300))
     } catch (error) {
       this.logger.error("Failed to update generation steps", { error, requestId })
