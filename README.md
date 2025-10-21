@@ -84,15 +84,45 @@ job-finder-BE/
 
 ## Development
 
-### Local Development
+### Local Development with Emulators
 
-Start the Firebase emulator:
+This project uses the Firebase Emulator Suite for local development with **data persistence** enabled.
+
+**Start all emulators** (Auth, Functions, Firestore, Storage):
 ```bash
-npm start
+cd functions
+npm run emulators:start
 ```
 
-The functions will be available at:
-- `http://localhost:5001/<project-id>/<region>/<function-name>`
+This will:
+- Build the TypeScript functions
+- Start all emulators with persistence
+- Import previously saved data (if available)
+- Open the Emulator UI at `http://localhost:4000`
+
+**Available emulators:**
+- **Auth**: `http://localhost:9099` - User authentication and custom claims
+- **Functions**: `http://localhost:5001` - Cloud Functions API
+- **Firestore**: `http://localhost:8080` - Database with security rules
+- **Storage**: `http://localhost:9199` - File storage
+- **Emulator UI**: `http://localhost:4000` - Web dashboard
+
+**Emulator commands:**
+```bash
+# Start with persistence (default)
+npm run emulators:start
+
+# Clear all persisted data and start fresh
+npm run emulators:clear
+npm run emulators:start
+
+# Seed test data (users, collections)
+npm run emulators:seed
+```
+
+Data persists between restarts in `.firebase/emulator-data/`.
+
+See [docs/development/EMULATORS.md](./docs/development/EMULATORS.md) for detailed emulator guide.
 
 ### Build
 
@@ -103,20 +133,32 @@ npm run build
 
 ### Testing
 
-Run tests:
+**Unit tests:**
 ```bash
+cd functions
 npm test
 ```
 
-Run tests in watch mode:
+**Firestore security rules tests:**
+```bash
+npm run test:firestore-rules
+```
+
+**Integration tests** (requires emulators):
+```bash
+# Terminal 1: Start emulators
+npm run emulators:start
+
+# Terminal 2: Run integration tests
+npm run test:integration
+```
+
+**Watch mode:**
 ```bash
 npm run test:watch
 ```
 
-Generate coverage report:
-```bash
-npm run test:coverage
-```
+All tests automatically connect to emulators when available.
 
 ### Linting
 

@@ -5,8 +5,8 @@
  *
  * Environment-based database selection:
  * - Emulator: (default)
- * - Staging: job-finder-staging
- * - Production: job-finder-production
+ * - Staging: portfolio-staging
+ * - Production: portfolio
  */
 
 import { logger } from "../utils/logger"
@@ -40,15 +40,15 @@ function getDatabaseId(): string {
 
   switch (environment) {
     case "staging":
-      return "job-finder-staging"
+      return "portfolio-staging"
     case "production":
-      return "job-finder-production"
+      return "portfolio"
     case "development":
     case "test":
       return "(default)"
     default:
       // Production is the safe default
-      return "job-finder-production"
+      return "portfolio"
   }
 }
 

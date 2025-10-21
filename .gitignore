@@ -16,11 +16,15 @@ node_modules/
 .runtimeconfig.json
 
 # Firebase
-.firebase/
+.firebase/*
+!.firebase/emulator-data/
+.firebase/emulator-data/*
+!.firebase/emulator-data/.gitkeep
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
 pubsub-debug.log
+storage-debug.log
 
 # IDEs
 .idea/

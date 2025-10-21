@@ -1,0 +1,260 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+
+    /**
+     * Check if user is authenticated
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    /**
+     * Check if user owns the resource
+     */
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    /**
+     * Check if user has editor role
+     * Editors can manage content and generate documents
+     */
+    function isEditor() {
+      return isAuthenticated() &&
+             request.auth.token.role == 'editor';
+    }
+
+    /**
+     * Check if user has admin role
+     * Admins can manage all resources and access queue
+     */
+    function isAdmin() {
+      return isAuthenticated() &&
+             request.auth.token.role == 'admin';
+    }
+
+    /**
+     * Check if user has viewer role (minimum access)
+     * Viewers can read their own data
+     */
+    function isViewer() {
+      return isAuthenticated() &&
+             request.auth.token.role in ['viewer', 'editor', 'admin'];
+    }
+
+    /**
+     * Validate common timestamp fields
+     */
+    function hasValidTimestamps() {
+      return request.resource.data.createdAt is timestamp &&
+             request.resource.data.updatedAt is timestamp;
+    }
+
+    // ============================================================
+    // JOB QUEUE COLLECTION
+    // Used by: job-queue.service.ts
+    // ============================================================
+
+    match /job-queue/{queueId} {
+      // Allow users to read their own submissions
+      allow read: if isOwner(resource.data.submitted_by);
+
+      // Allow authenticated users to create queue items
+      allow create: if isAuthenticated() &&
+                       request.resource.data.submitted_by == request.auth.uid &&
+                       request.resource.data.created_at is timestamp;
+
+      // Only allow users to update their own non-completed items
+      allow update: if isOwner(resource.data.submitted_by) &&
+                       resource.data.status != 'completed' &&
+                       resource.data.status != 'failed';
+
+      // Allow users to delete their own pending items
+      allow delete: if isOwner(resource.data.submitted_by) &&
+                       resource.data.status == 'pending';
+
+      // Admins can read and manage all queue items
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // GENERATOR DOCUMENTS COLLECTION
+    // Used by: generator.service.ts
+    // Stores document generation requests and responses
+    // ============================================================
+
+    match /generator-documents/{documentId} {
+      // Users can read their own documents
+      allow read: if isAuthenticated() &&
+                     resource.data.access.userId == request.auth.uid;
+
+      // Editors can create document generation requests
+      allow create: if isEditor() &&
+                       request.resource.data.access.userId == request.auth.uid &&
+                       request.resource.data.createdAt is timestamp;
+
+      // Only allow updates to own documents and prevent changing ownership
+      allow update: if isEditor() &&
+                       resource.data.access.userId == request.auth.uid &&
+                       request.resource.data.access.userId == request.auth.uid;
+
+      // Users can delete their own documents
+      allow delete: if isEditor() &&
+                       resource.data.access.userId == request.auth.uid;
+
+      // Admins have full access
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // CONTENT ITEMS COLLECTION
+    // Used by: content-item.service.ts
+    // Stores user's resume content (experience, skills, projects)
+    // ============================================================
+
+    match /content-items/{itemId} {
+      // Users can read their own content
+      allow read: if isOwner(resource.data.userId);
+
+      // Editors can create and manage their own content items
+      allow create: if isEditor() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       hasValidTimestamps();
+
+      allow update: if isEditor() &&
+                       isOwner(resource.data.userId) &&
+                       request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isEditor() &&
+                       isOwner(resource.data.userId);
+
+      // Admins have full access
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // EXPERIENCES COLLECTION
+    // Used by: experience.service.ts
+    // Stores work experience entries
+    // ============================================================
+
+    match /experiences/{experienceId} {
+      // Users can read their own experiences
+      allow read: if isOwner(resource.data.userId);
+
+      // Editors can create and manage their own experiences
+      allow create: if isEditor() &&
+                       request.resource.data.userId == request.auth.uid &&
+                       request.resource.data.type == 'experience';
+
+      allow update: if isEditor() &&
+                       isOwner(resource.data.userId) &&
+                       request.resource.data.userId == resource.data.userId;
+
+      allow delete: if isEditor() &&
+                       isOwner(resource.data.userId);
+
+      // Admins have full access
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // PERSONAL INFO COLLECTION
+    // Used by: generator.service.ts
+    // Stores user's personal information for document generation
+    // ============================================================
+
+    match /personal-info/{userId} {
+      // Users can read their own personal info
+      allow read: if isOwner(userId);
+
+      // Editors can create and update their own personal info
+      allow create, update: if isEditor() && isOwner(userId);
+
+      // Users can delete their own personal info
+      allow delete: if isEditor() && isOwner(userId);
+
+      // Admins have full access
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // USER PROFILES COLLECTION
+    // Used by: future user profile management
+    // Stores user preferences and settings
+    // ============================================================
+
+    match /user-profiles/{userId} {
+      // Users can read their own profile
+      allow read: if isOwner(userId);
+
+      // Authenticated users can create their own profile
+      allow create: if isAuthenticated() && isOwner(userId);
+
+      // Users can update their own profile
+      allow update: if isOwner(userId);
+
+      // Users cannot delete their own profile (admin only)
+      allow delete: if isAdmin();
+    }
+
+    // ============================================================
+    // JOB MATCHES COLLECTION (Shared with job-finder-worker)
+    // Read-only access from backend - worker writes to this collection
+    // ============================================================
+
+    match /job-matches/{matchId} {
+      // Users can read their own matches
+      allow read: if isViewer() &&
+                     resource.data.userId == request.auth.uid;
+
+      // Backend functions can write (service account)
+      // User-initiated writes not allowed from client
+      allow write: if false;
+
+      // Admins have full access
+      allow read, write: if isAdmin();
+    }
+
+    // ============================================================
+    // COMPANIES COLLECTION (Shared with job-finder-worker)
+    // Read-only from client side
+    // ============================================================
+
+    match /companies/{companyId} {
+      // All authenticated users can read company data
+      allow read: if isAuthenticated();
+
+      // Only service accounts and admins can write
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // JOB SOURCES COLLECTION (Shared with job-finder-worker)
+    // Source configurations for job scraping
+    // ============================================================
+
+    match /job-sources/{sourceId} {
+      // Authenticated users can read source configs
+      allow read: if isAuthenticated();
+
+      // Only admins can manage sources
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // DEFAULT DENY ALL
+    // All other collections require explicit rules
+    // ============================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
