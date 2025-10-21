@@ -78,17 +78,17 @@ jobs:
           fi
 
           # Check function-specific changes
-          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|functions/content-items)"; then
+          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|content-items\.ts)"; then
             CONTENT_ITEMS_CHANGED=true
             ANY_CHANGED=true
           fi
 
-          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|functions/experience)"; then
+          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|experience\.ts)"; then
             EXPERIENCE_CHANGED=true
             ANY_CHANGED=true
           fi
 
-          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|functions/generator|templates)"; then
+          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|generator\.ts|job-queue\.ts|resume\.ts|templates)"; then
             GENERATOR_CHANGED=true
             ANY_CHANGED=true
           fi

@@ -19,7 +19,7 @@ import { logger } from "../utils/logger"
  * 2. Emulator detection (uses "(default)")
  * 3. ENVIRONMENT variable (production/staging)
  * 4. NODE_ENV variable (fallback)
- * 5. Default to "job-finder-production" (production)
+ * 5. Default to "portfolio" (production)
  *
  * @returns {string} The database ID to use
  */
@@ -61,24 +61,29 @@ function getDatabaseId(): string {
 export const DATABASE_ID = getDatabaseId()
 
 /**
- * Job queue collection name
+ * Contact form submissions collection name
  */
-export const JOB_QUEUE_COLLECTION = "job-queue"
+export const CONTACT_SUBMISSIONS_COLLECTION = "contact-submissions"
 
 /**
- * Generator documents collection name
+ * Experience entries collection name
  */
-export const GENERATOR_DOCUMENTS_COLLECTION = "generator-documents"
+export const EXPERIENCE_COLLECTION = "experience"
 
 /**
- * Content items collection name (user's resume data)
+ * Generator document collection name
+ */
+export const GENERATOR_COLLECTION = "generator-documents"
+
+/**
+ * Blurbs collection name (for resume/cover letter generation)
+ */
+export const BLURBS_COLLECTION = "blurbs"
+
+/**
+ * Content items collection name (for portfolio content management)
  */
 export const CONTENT_ITEMS_COLLECTION = "content-items"
-
-/**
- * User profiles collection name
- */
-export const USER_PROFILES_COLLECTION = "user-profiles"
 
 /**
  * Validate that DATABASE_ID is set correctly

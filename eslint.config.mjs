@@ -12,7 +12,7 @@ export default [
       parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
-        project: './functions/tsconfig.json'
+        project: './functions/tsconfig.eslint.json'
       },
       globals: {
         ...globals.node,

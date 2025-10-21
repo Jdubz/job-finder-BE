@@ -1,86 +1,114 @@
-/**
- * Experience Service
- *
- * Manages work experience entries for resume generation.
- * Each experience entry represents a job/role with highlights and technologies.
- *
- * Architecture:
- * - User-based ownership (userId field)
- * - Simple CRUD operations
- * - Used by Generator service for resume/cover letter content
- */
-
-import { FieldValue } from "@google-cloud/firestore"
-import type { SimpleLogger } from "../types/logger.types"
-import { createDefaultLogger } from "../utils/logger"
+import { Firestore, Timestamp } from "@google-cloud/firestore"
+import { EXPERIENCE_COLLECTION } from "../config/database"
 import { createFirestoreInstance } from "../config/firestore"
-import type { ExperienceEntry } from "@jsdubzw/job-finder-shared-types"
+import { createDefaultLogger } from "../utils/logger"
+import type { SimpleLogger } from "../types/logger.types"
 
-const COLLECTION_NAME = "experiences"
+// Use collection name from config
+const COLLECTION_NAME = EXPERIENCE_COLLECTION
 
-/**
- * Data for creating a new experience entry
- */
-export interface CreateExperienceData {
-  company: string
-  role: string
-  location?: string
+export interface ExperienceEntry {
+  id: string
+  title: string
+  role?: string // Job title/role (optional)
+  location?: string // Location (optional)
+  body?: string // Deprecated - kept for backward compatibility
   startDate: string // YYYY-MM format
-  endDate: string | null // YYYY-MM format or null for current
-  highlights: string[]
+  endDate?: string | null // YYYY-MM format or null (= Present)
+  notes?: string
+  order?: number // For sorting (lower = earlier), optional for backward compatibility
+  relatedBlurbIds?: string[] // References to associated blurbs, optional for backward compatibility
+
+  // NEW: Structured fields
+  renderType?: "structured-entry" | "simple-entry" | "text"
+  summary?: string
+  accomplishments?: string[]
   technologies?: string[]
+  projects?: Array<{
+    name: string
+    description: string
+    technologies?: string[]
+    challenges?: string[]
+  }>
+
+  createdAt: Timestamp
+  updatedAt: Timestamp
+  createdBy: string // Email of creator
+  updatedBy: string // Email of last editor
 }
 
-/**
- * Data for updating an experience entry
- */
-export interface UpdateExperienceData {
-  company?: string
+export interface CreateExperienceData {
+  title: string
   role?: string
   location?: string
+  body?: string
+  startDate: string
+  endDate?: string | null
+  notes?: string
+  order?: number
+  relatedBlurbIds?: string[]
+}
+
+export interface UpdateExperienceData {
+  title?: string
+  role?: string
+  location?: string
+  body?: string
   startDate?: string
   endDate?: string | null
-  highlights?: string[]
+  notes?: string
+  order?: number
+  relatedBlurbIds?: string[]
+  // Structured fields
+  renderType?: "structured-entry" | "simple-entry" | "text"
+  summary?: string
+  accomplishments?: string[]
   technologies?: string[]
+  projects?: Array<{
+    name: string
+    description: string
+    technologies?: string[]
+    challenges?: string[]
+  }>
 }
 
 export class ExperienceService {
-  private db: FirebaseFirestore.Firestore
+  private db: Firestore
   private logger: SimpleLogger
-  private collectionName: string
+  private collectionName = COLLECTION_NAME
 
   constructor(logger?: SimpleLogger) {
-    this.collectionName = COLLECTION_NAME
+    // Use shared Firestore factory for consistent configuration
     this.db = createFirestoreInstance()
+
+    // Use shared logger factory
     this.logger = logger || createDefaultLogger()
   }
 
   /**
-   * List all experience entries for a user
-   * Sorted by startDate (newest first)
+   * List all experience entries, sorted by order (ascending) or fallback to startDate (newest first)
    */
-  async listEntries(userId: string): Promise<ExperienceEntry[]> {
+  async listEntries(): Promise<ExperienceEntry[]> {
     try {
+      // Use order field for sorting (lower values appear first)
+      // Fallback to startDate descending for entries without order field (backward compatibility)
       const snapshot = await this.db
         .collection(this.collectionName)
-        .where("userId", "==", userId)
-        .where("type", "==", "experience")
-        .orderBy("startDate", "desc")
+        .orderBy("order", "asc")
         .get()
 
       const entries = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
-      })) as ExperienceEntry[]
+        ...(doc.data() as Omit<ExperienceEntry, "id">),
+      }))
 
       this.logger.info("Retrieved experience entries", {
-        userId,
         count: entries.length,
       })
 
       return entries
     } catch (error) {
-      this.logger.error("Failed to list experience entries", { error, userId })
+      this.logger.error("Failed to list experience entries", { error })
       throw error
     }
   }
@@ -88,35 +116,25 @@ export class ExperienceService {
   /**
    * Get a single experience entry by ID
    */
-  async getEntry(id: string, userId: string): Promise<ExperienceEntry | null> {
+  async getEntry(id: string): Promise<ExperienceEntry | null> {
     try {
       const docRef = this.db.collection(this.collectionName).doc(id)
       const doc = await docRef.get()
 
       if (!doc.exists) {
-        this.logger.info("Experience entry not found", { id, userId })
+        this.logger.info("Experience entry not found", { id })
         return null
       }
 
       const entry = {
         id: doc.id,
-        ...doc.data(),
-      } as ExperienceEntry
-
-      // Verify ownership
-      if (entry.userId !== userId) {
-        this.logger.warning("User attempted to access entry they don't own", {
-          id,
-          userId,
-          ownerId: entry.userId,
-        })
-        return null
+        ...(doc.data() as Omit<ExperienceEntry, "id">),
       }
 
-      this.logger.info("Retrieved experience entry", { id, userId })
+      this.logger.info("Retrieved experience entry", { id })
       return entry
     } catch (error) {
-      this.logger.error("Failed to get experience entry", { error, id, userId })
+      this.logger.error("Failed to get experience entry", { error, id })
       throw error
     }
   }
@@ -124,56 +142,64 @@ export class ExperienceService {
   /**
    * Create a new experience entry
    */
-  async createEntry(data: CreateExperienceData, userId: string): Promise<ExperienceEntry> {
+  async createEntry(data: CreateExperienceData, userEmail: string): Promise<ExperienceEntry> {
     try {
-      // Validate required fields
-      if (!data.company || !data.role || !data.startDate) {
-        throw new Error("Missing required fields: company, role, startDate")
-      }
+      const now = Timestamp.now()
 
-      // Validate date format (YYYY-MM)
-      const dateRegex = /^\d{4}-\d{2}$/
-      if (!dateRegex.test(data.startDate)) {
-        throw new Error("startDate must be in YYYY-MM format")
-      }
-      if (data.endDate && !dateRegex.test(data.endDate)) {
-        throw new Error("endDate must be in YYYY-MM format")
-      }
-
-      const docRef = this.db.collection(this.collectionName).doc()
-
-      const entry = {
-        id: docRef.id,
-        type: "experience" as const,
-        userId,
-        company: data.company,
-        role: data.role,
-        location: data.location || null,
+      // Build entry object, omitting undefined/empty fields
+      // Firestore doesn't accept undefined values, so we only include defined fields
+      const entry: Record<string, unknown> = {
+        title: data.title,
         startDate: data.startDate,
-        endDate: data.endDate,
-        highlights: data.highlights || [],
-        technologies: data.technologies || [],
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
+        endDate: data.endDate || null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: userEmail,
+        updatedBy: userEmail,
       }
 
-      await docRef.set(entry)
+      // Only add optional fields if they have non-empty values
+      if (data.role && data.role.trim() !== "") {
+        entry.role = data.role
+      }
+      if (data.location && data.location.trim() !== "") {
+        entry.location = data.location
+      }
+      if (data.body && data.body.trim() !== "") {
+        entry.body = data.body
+      }
+      if (data.notes && data.notes.trim() !== "") {
+        entry.notes = data.notes
+      }
+      if (data.order !== undefined) {
+        entry.order = data.order
+      }
+      if (data.relatedBlurbIds !== undefined) {
+        entry.relatedBlurbIds = data.relatedBlurbIds
+      }
+
+      const docRef = await this.db.collection(this.collectionName).add(entry)
+
+      // Return the created entry with the generated ID
+      // Cast entry as Omit<ExperienceEntry, "id"> since we know it has all required fields
+      const createdEntry: ExperienceEntry = {
+        id: docRef.id,
+        ...(entry as Omit<ExperienceEntry, "id">),
+      }
 
       this.logger.info("Created experience entry", {
         id: docRef.id,
-        userId,
-        company: data.company,
-        role: data.role,
+        title: data.title,
+        createdBy: userEmail,
       })
 
-      // Fetch created document to get server timestamps
-      const createdDoc = await docRef.get()
-      return {
-        id: createdDoc.id,
-        ...createdDoc.data(),
-      } as ExperienceEntry
+      return createdEntry
     } catch (error) {
-      this.logger.error("Failed to create experience entry", { error, userId })
+      this.logger.error("Failed to create experience entry", {
+        error,
+        data,
+        userEmail,
+      })
       throw error
     }
   }
@@ -181,11 +207,7 @@ export class ExperienceService {
   /**
    * Update an existing experience entry
    */
-  async updateEntry(
-    id: string,
-    data: UpdateExperienceData,
-    userId: string
-  ): Promise<ExperienceEntry> {
+  async updateEntry(id: string, data: UpdateExperienceData, userEmail: string): Promise<ExperienceEntry> {
     try {
       const docRef = this.db.collection(this.collectionName).doc(id)
       const doc = await docRef.get()
@@ -194,51 +216,82 @@ export class ExperienceService {
         throw new Error(`Experience entry not found: ${id}`)
       }
 
-      const existingEntry = doc.data() as ExperienceEntry
-
-      // Verify ownership
-      if (existingEntry.userId !== userId) {
-        throw new Error("User does not have permission to update this entry")
-      }
-
-      // Validate date formats if provided
-      const dateRegex = /^\d{4}-\d{2}$/
-      if (data.startDate && !dateRegex.test(data.startDate)) {
-        throw new Error("startDate must be in YYYY-MM format")
-      }
-      if (data.endDate !== undefined && data.endDate !== null && !dateRegex.test(data.endDate)) {
-        throw new Error("endDate must be in YYYY-MM format")
-      }
-
-      // Build updates object
+      // Build updates object, omitting undefined values
+      // Firestore doesn't accept undefined, but null is OK for clearing fields
       const updates: Record<string, unknown> = {
-        updatedAt: FieldValue.serverTimestamp(),
+        updatedAt: Timestamp.now(),
+        updatedBy: userEmail,
       }
 
-      if (data.company !== undefined) updates.company = data.company
-      if (data.role !== undefined) updates.role = data.role
-      if (data.location !== undefined) updates.location = data.location || null
-      if (data.startDate !== undefined) updates.startDate = data.startDate
-      if (data.endDate !== undefined) updates.endDate = data.endDate
-      if (data.highlights !== undefined) updates.highlights = data.highlights
-      if (data.technologies !== undefined) updates.technologies = data.technologies
+      // Only update provided fields
+      if (data.title !== undefined) {
+        updates.title = data.title
+      }
+      if (data.role !== undefined) {
+        // If empty string, use null to clear the field
+        updates.role = data.role && data.role.trim() !== "" ? data.role : null
+      }
+      if (data.location !== undefined) {
+        updates.location = data.location && data.location.trim() !== "" ? data.location : null
+      }
+      if (data.body !== undefined) {
+        updates.body = data.body && data.body.trim() !== "" ? data.body : null
+      }
+      if (data.startDate !== undefined) {
+        updates.startDate = data.startDate
+      }
+      if (data.endDate !== undefined) {
+        updates.endDate = data.endDate
+      }
+      if (data.notes !== undefined) {
+        updates.notes = data.notes && data.notes.trim() !== "" ? data.notes : null
+      }
+      if (data.order !== undefined) {
+        updates.order = data.order
+      }
+      if (data.relatedBlurbIds !== undefined) {
+        updates.relatedBlurbIds = data.relatedBlurbIds
+      }
+      // Structured fields
+      if (data.renderType !== undefined) {
+        updates.renderType = data.renderType
+      }
+      if (data.summary !== undefined) {
+        updates.summary = data.summary && data.summary.trim() !== "" ? data.summary : null
+      }
+      if (data.accomplishments !== undefined) {
+        updates.accomplishments = data.accomplishments
+      }
+      if (data.technologies !== undefined) {
+        updates.technologies = data.technologies
+      }
+      if (data.projects !== undefined) {
+        updates.projects = data.projects
+      }
 
       await docRef.update(updates)
 
-      this.logger.info("Updated experience entry", {
-        id,
-        userId,
-        fieldsUpdated: Object.keys(updates).filter((k) => k !== "updatedAt"),
-      })
-
       // Fetch updated document
       const updatedDoc = await docRef.get()
-      return {
+      const updatedEntry: ExperienceEntry = {
         id: updatedDoc.id,
-        ...updatedDoc.data(),
-      } as ExperienceEntry
+        ...(updatedDoc.data() as Omit<ExperienceEntry, "id">),
+      }
+
+      this.logger.info("Updated experience entry", {
+        id,
+        updatedBy: userEmail,
+        fieldsUpdated: Object.keys(updates).filter((k) => k !== "updatedAt" && k !== "updatedBy"),
+      })
+
+      return updatedEntry
     } catch (error) {
-      this.logger.error("Failed to update experience entry", { error, id, userId })
+      this.logger.error("Failed to update experience entry", {
+        error,
+        id,
+        data,
+        userEmail,
+      })
       throw error
     }
   }
@@ -246,7 +299,7 @@ export class ExperienceService {
   /**
    * Delete an experience entry
    */
-  async deleteEntry(id: string, userId: string): Promise<void> {
+  async deleteEntry(id: string): Promise<void> {
     try {
       const docRef = this.db.collection(this.collectionName).doc(id)
       const doc = await docRef.get()
@@ -255,102 +308,15 @@ export class ExperienceService {
         throw new Error(`Experience entry not found: ${id}`)
       }
 
-      const existingEntry = doc.data() as ExperienceEntry
-
-      // Verify ownership
-      if (existingEntry.userId !== userId) {
-        throw new Error("User does not have permission to delete this entry")
-      }
-
       await docRef.delete()
 
-      this.logger.info("Deleted experience entry", { id, userId })
+      this.logger.info("Deleted experience entry", { id })
     } catch (error) {
-      this.logger.error("Failed to delete experience entry", { error, id, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Get recent experience entries (for resume generation)
-   * Returns the most recent N entries, useful for limiting resume length
-   */
-  async getRecentEntries(userId: string, limit: number = 5): Promise<ExperienceEntry[]> {
-    try {
-      const snapshot = await this.db
-        .collection(this.collectionName)
-        .where("userId", "==", userId)
-        .where("type", "==", "experience")
-        .orderBy("startDate", "desc")
-        .limit(limit)
-        .get()
-
-      const entries = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as ExperienceEntry[]
-
-      this.logger.info("Retrieved recent experience entries", {
-        userId,
-        count: entries.length,
-        limit,
+      this.logger.error("Failed to delete experience entry", {
+        error,
+        id,
       })
-
-      return entries
-    } catch (error) {
-      this.logger.error("Failed to get recent experience entries", { error, userId, limit })
       throw error
     }
   }
-
-  /**
-   * Batch delete multiple experience entries
-   * Useful for cleanup operations
-   */
-  async batchDelete(ids: string[], userId: string): Promise<void> {
-    try {
-      const batch = this.db.batch()
-
-      // Verify ownership and prepare deletions
-      for (const id of ids) {
-        const docRef = this.db.collection(this.collectionName).doc(id)
-        const doc = await docRef.get()
-
-        if (!doc.exists) {
-          this.logger.warning("Skipping non-existent entry in batch delete", { id, userId })
-          continue
-        }
-
-        const entry = doc.data() as ExperienceEntry
-
-        if (entry.userId !== userId) {
-          this.logger.warning("Skipping entry user doesn't own in batch delete", {
-            id,
-            userId,
-            ownerId: entry.userId,
-          })
-          continue
-        }
-
-        batch.delete(docRef)
-      }
-
-      await batch.commit()
-
-      this.logger.info("Batch deleted experience entries", {
-        userId,
-        count: ids.length,
-      })
-    } catch (error) {
-      this.logger.error("Failed to batch delete experience entries", { error, userId, ids })
-      throw error
-    }
-  }
-}
-
-/**
- * Helper function to create an Experience service instance
- */
-export function createExperienceService(logger?: SimpleLogger): ExperienceService {
-  return new ExperienceService(logger)
 }

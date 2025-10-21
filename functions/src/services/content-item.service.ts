@@ -1,101 +1,88 @@
-/**
- * Content Item Service
- *
- * Unified content management for resume building blocks.
- * Replaces the deprecated blurbs system with structured content types.
- *
- * Supported content types:
- * - company: Employment history
- * - project: Projects (standalone or nested under companies)
- * - skill-group: Categorized skills
- * - education: Formal education and certifications
- * - profile-section: About/intro sections
- * - accomplishment: Granular achievements
- */
-
-import { FieldValue } from "@google-cloud/firestore"
-import type { SimpleLogger } from "../types/logger.types"
-import { createDefaultLogger } from "../utils/logger"
-import { createFirestoreInstance } from "../config/firestore"
+import { Firestore, Timestamp, Query } from "@google-cloud/firestore"
 import { CONTENT_ITEMS_COLLECTION } from "../config/database"
+import { createFirestoreInstance } from "../config/firestore"
+import { createDefaultLogger } from "../utils/logger"
+import type { SimpleLogger } from "../types/logger.types"
 import type {
   ContentItem,
   ContentItemType,
-  ContentItemVisibility,
   CreateContentItemData,
   UpdateContentItemData,
-} from "@jsdubzw/job-finder-shared-types"
+  ListContentItemsOptions,
+  ContentItemVisibility,
+} from "../types/content-item.types"
+
+const COLLECTION_NAME = CONTENT_ITEMS_COLLECTION
 
 export class ContentItemService {
-  private db: FirebaseFirestore.Firestore
+  private db: Firestore
   private logger: SimpleLogger
-  private collectionName: string
+  private collectionName = COLLECTION_NAME
 
   constructor(logger?: SimpleLogger) {
-    this.collectionName = CONTENT_ITEMS_COLLECTION
+    // Use shared Firestore factory for consistent configuration
     this.db = createFirestoreInstance()
+
+    // Use shared logger factory
     this.logger = logger || createDefaultLogger()
   }
 
   /**
-   * ============================================================================
-   * LIST OPERATIONS
-   * ============================================================================
+   * List content items with optional filters
    */
-
-  /**
-   * List all content items for a user
-   */
-  async listItems(userId: string, options?: {
-    type?: ContentItemType
-    visibility?: ContentItemVisibility
-    parentId?: string
-    limit?: number
-  }): Promise<ContentItem[]> {
+  async listItems(options?: ListContentItemsOptions): Promise<ContentItem[]> {
     try {
-      let query = this.db
-        .collection(this.collectionName)
-        .where("userId", "==", userId) as FirebaseFirestore.Query
+      let query = this.db.collection(this.collectionName).orderBy("order", "asc")
 
-      // Filter by type if specified
+      // Apply filters
       if (options?.type) {
-        query = query.where("type", "==", options.type)
+        query = query.where("type", "==", options.type) as Query
       }
 
-      // Filter by visibility if specified
-      if (options?.visibility) {
-        query = query.where("visibility", "==", options.visibility)
-      }
-
-      // Filter by parentId if specified
       if (options?.parentId !== undefined) {
-        query = query.where("parentId", "==", options.parentId)
+        query = query.where("parentId", "==", options.parentId) as Query
       }
 
-      // Order by order field (for user-defined ordering)
-      query = query.orderBy("order", "asc")
+      if (options?.visibility) {
+        query = query.where("visibility", "==", options.visibility) as Query
+      }
 
-      // Apply limit if specified
+      // Tag filter (array-contains, only supports single tag)
+      if (options?.tags && options.tags.length > 0) {
+        query = query.where("tags", "array-contains", options.tags[0]) as Query
+      }
+
+      // Pagination
+      if (options?.offset) {
+        // Note: Firestore doesn't support offset directly, need to use startAfter with a doc
+        // For now, we'll fetch all and slice client-side
+        // TODO: Implement proper cursor-based pagination
+      }
+
       if (options?.limit) {
-        query = query.limit(options.limit)
+        query = query.limit(options.limit) as Query
       }
 
       const snapshot = await query.get()
-      const items = snapshot.docs.map((doc) => ({
+
+      let items = snapshot.docs.map((doc) => ({
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as Omit<ContentItem, "id">),
       })) as ContentItem[]
 
+      // Apply client-side offset if needed
+      if (options?.offset) {
+        items = items.slice(options.offset)
+      }
+
       this.logger.info("Retrieved content items", {
-        userId,
         count: items.length,
-        type: options?.type,
-        visibility: options?.visibility,
+        filters: options,
       })
 
       return items
     } catch (error) {
-      this.logger.error("Failed to list content items", { error, userId })
+      this.logger.error("Failed to list content items", { error, options })
       throw error
     }
   }
@@ -103,96 +90,98 @@ export class ContentItemService {
   /**
    * Get a single content item by ID
    */
-  async getItem(id: string, userId: string): Promise<ContentItem | null> {
+  async getItem(id: string): Promise<ContentItem | null> {
     try {
       const docRef = this.db.collection(this.collectionName).doc(id)
       const doc = await docRef.get()
 
       if (!doc.exists) {
-        this.logger.info("Content item not found", { id, userId })
+        this.logger.info("Content item not found", { id })
         return null
       }
 
       const item = {
         id: doc.id,
-        ...doc.data(),
+        ...(doc.data() as Omit<ContentItem, "id">),
       } as ContentItem
 
-      // Verify ownership
-      if (item.userId !== userId) {
-        this.logger.warning("User attempted to access item they don't own", {
-          id,
-          userId,
-          ownerId: item.userId,
-        })
-        return null
-      }
-
-      this.logger.info("Retrieved content item", { id, userId, type: item.type })
+      this.logger.info("Retrieved content item", { id, type: item.type })
       return item
     } catch (error) {
-      this.logger.error("Failed to get content item", { error, id, userId })
+      this.logger.error("Failed to get content item", { error, id })
       throw error
     }
   }
 
   /**
-   * ============================================================================
-   * CREATE OPERATIONS
-   * ============================================================================
+   * Get all children of a parent item
    */
+  async getChildren(parentId: string): Promise<ContentItem[]> {
+    return this.listItems({ parentId })
+  }
+
+  /**
+   * Get all root-level items (no parent)
+   */
+  async getRootItems(): Promise<ContentItem[]> {
+    return this.listItems({ parentId: null })
+  }
 
   /**
    * Create a new content item
    */
-  async createItem(data: CreateContentItemData, userId: string): Promise<ContentItem> {
+  async createItem(data: CreateContentItemData, userEmail: string): Promise<ContentItem> {
     try {
-      const docRef = this.db.collection(this.collectionName).doc()
+      const now = Timestamp.now()
 
-      const item = {
-        id: docRef.id,
+      // Build item object
+      const item: Record<string, unknown> = {
         ...data,
-        userId,
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-        createdBy: userId,
-        updatedBy: userId,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: userEmail,
+        updatedBy: userEmail,
       }
 
-      await docRef.set(item)
+      // Ensure parentId is present (null for root items)
+      if (item.parentId === undefined) {
+        item.parentId = null
+      }
+
+      // Set default visibility if not provided
+      if (!item.visibility) {
+        item.visibility = "published"
+      }
+
+      const docRef = await this.db.collection(this.collectionName).add(item)
+
+      const createdItem: ContentItem = {
+        id: docRef.id,
+        ...(item as Omit<ContentItem, "id">),
+      } as ContentItem
 
       this.logger.info("Created content item", {
         id: docRef.id,
-        userId,
         type: data.type,
+        parentId: data.parentId,
+        createdBy: userEmail,
       })
 
-      // Fetch created document to get server timestamps
-      const createdDoc = await docRef.get()
-      return {
-        id: createdDoc.id,
-        ...createdDoc.data(),
-      } as ContentItem
+      return createdItem
     } catch (error) {
-      this.logger.error("Failed to create content item", { error, userId, type: data.type })
+      this.logger.error("Failed to create content item", {
+        error,
+        data,
+        userEmail,
+      })
       throw error
     }
   }
 
   /**
-   * ============================================================================
-   * UPDATE OPERATIONS
-   * ============================================================================
-   */
-
-  /**
    * Update an existing content item
    */
-  async updateItem(
-    id: string,
-    data: UpdateContentItemData,
-    userId: string
-  ): Promise<ContentItem> {
+  async updateItem(id: string, data: UpdateContentItemData, userEmail: string): Promise<ContentItem> {
     try {
       const docRef = this.db.collection(this.collectionName).doc(id)
       const doc = await docRef.get()
@@ -201,284 +190,197 @@ export class ContentItemService {
         throw new Error(`Content item not found: ${id}`)
       }
 
-      const existingItem = doc.data() as ContentItem
-
-      // Verify ownership
-      if (existingItem.userId !== userId) {
-        throw new Error("User does not have permission to update this item")
-      }
-
       // Build updates object
       const updates: Record<string, unknown> = {
         ...data,
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedBy: userId,
+        updatedAt: Timestamp.now(),
+        updatedBy: userEmail,
       }
+
+      // Remove undefined values (Firestore doesn't accept them)
+      Object.keys(updates).forEach((key) => {
+        if (updates[key] === undefined) {
+          delete updates[key]
+        }
+      })
 
       await docRef.update(updates)
 
-      this.logger.info("Updated content item", {
-        id,
-        userId,
-        type: existingItem.type,
-        fieldsUpdated: Object.keys(data),
-      })
-
       // Fetch updated document
       const updatedDoc = await docRef.get()
-      return {
+      const updatedItem: ContentItem = {
         id: updatedDoc.id,
-        ...updatedDoc.data(),
+        ...(updatedDoc.data() as Omit<ContentItem, "id">),
       } as ContentItem
+
+      this.logger.info("Updated content item", {
+        id,
+        type: updatedItem.type,
+        updatedBy: userEmail,
+        fieldsUpdated: Object.keys(updates).filter((k) => k !== "updatedAt" && k !== "updatedBy"),
+      })
+
+      return updatedItem
     } catch (error) {
-      this.logger.error("Failed to update content item", { error, id, userId })
+      this.logger.error("Failed to update content item", {
+        error,
+        id,
+        data,
+        userEmail,
+      })
       throw error
     }
   }
 
   /**
-   * Reorder content items
-   * Updates the order field for multiple items in a batch
+   * Delete a content item
+   * Note: This does NOT cascade delete children. Use deleteWithChildren for that.
    */
-  async reorderItems(
-    updates: Array<{ id: string; order: number }>,
-    userId: string
-  ): Promise<void> {
+  async deleteItem(id: string): Promise<void> {
+    try {
+      const docRef = this.db.collection(this.collectionName).doc(id)
+      const doc = await docRef.get()
+
+      if (!doc.exists) {
+        throw new Error(`Content item not found: ${id}`)
+      }
+
+      await docRef.delete()
+
+      this.logger.info("Deleted content item", { id })
+    } catch (error) {
+      this.logger.error("Failed to delete content item", {
+        error,
+        id,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Delete a content item and all its children recursively
+   */
+  async deleteWithChildren(id: string): Promise<number> {
+    try {
+      let deletedCount = 0
+
+      // Get all children first
+      const children = await this.getChildren(id)
+
+      // Recursively delete children
+      for (const child of children) {
+        deletedCount += await this.deleteWithChildren(child.id)
+      }
+
+      // Delete the item itself
+      await this.deleteItem(id)
+      deletedCount += 1
+
+      this.logger.info("Deleted content item with children", { id, deletedCount })
+
+      return deletedCount
+    } catch (error) {
+      this.logger.error("Failed to delete content item with children", {
+        error,
+        id,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Reorder items by updating their order field
+   * Takes an array of { id, order } tuples
+   */
+  async reorderItems(items: Array<{ id: string; order: number }>, userEmail: string): Promise<void> {
     try {
       const batch = this.db.batch()
+      const now = Timestamp.now()
 
-      for (const update of updates) {
-        const docRef = this.db.collection(this.collectionName).doc(update.id)
-        const doc = await docRef.get()
-
-        if (!doc.exists) {
-          this.logger.warning("Skipping non-existent item in reorder", {
-            id: update.id,
-            userId,
-          })
-          continue
-        }
-
-        const item = doc.data() as ContentItem
-
-        if (item.userId !== userId) {
-          this.logger.warning("Skipping item user doesn't own in reorder", {
-            id: update.id,
-            userId,
-            ownerId: item.userId,
-          })
-          continue
-        }
-
+      for (const item of items) {
+        const docRef = this.db.collection(this.collectionName).doc(item.id)
         batch.update(docRef, {
-          order: update.order,
-          updatedAt: FieldValue.serverTimestamp(),
-          updatedBy: userId,
+          order: item.order,
+          updatedAt: now,
+          updatedBy: userEmail,
         })
       }
 
       await batch.commit()
 
       this.logger.info("Reordered content items", {
-        userId,
-        count: updates.length,
-      })
-    } catch (error) {
-      this.logger.error("Failed to reorder content items", { error, userId })
-      throw error
-    }
-  }
-
-  /**
-   * ============================================================================
-   * DELETE OPERATIONS
-   * ============================================================================
-   */
-
-  /**
-   * Delete a content item
-   * Also deletes nested items (e.g., projects under a company)
-   */
-  async deleteItem(id: string, userId: string, cascadeDelete: boolean = true): Promise<void> {
-    try {
-      const docRef = this.db.collection(this.collectionName).doc(id)
-      const doc = await docRef.get()
-
-      if (!doc.exists) {
-        throw new Error(`Content item not found: ${id}`)
-      }
-
-      const existingItem = doc.data() as ContentItem
-
-      // Verify ownership
-      if (existingItem.userId !== userId) {
-        throw new Error("User does not have permission to delete this item")
-      }
-
-      // If cascade delete is enabled, delete all nested items
-      if (cascadeDelete) {
-        const nestedItems = await this.listItems(userId, { parentId: id })
-
-        if (nestedItems.length > 0) {
-          this.logger.info("Cascade deleting nested items", {
-            parentId: id,
-            count: nestedItems.length,
-          })
-
-          const batch = this.db.batch()
-          for (const nestedItem of nestedItems) {
-            const nestedDocRef = this.db.collection(this.collectionName).doc(nestedItem.id)
-            batch.delete(nestedDocRef)
-          }
-          await batch.commit()
-        }
-      }
-
-      // Delete the main item
-      await docRef.delete()
-
-      this.logger.info("Deleted content item", {
-        id,
-        userId,
-        type: existingItem.type,
-        cascadeDelete,
-      })
-    } catch (error) {
-      this.logger.error("Failed to delete content item", { error, id, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Batch delete multiple content items
-   */
-  async batchDelete(ids: string[], userId: string): Promise<void> {
-    try {
-      const batch = this.db.batch()
-
-      for (const id of ids) {
-        const docRef = this.db.collection(this.collectionName).doc(id)
-        const doc = await docRef.get()
-
-        if (!doc.exists) {
-          this.logger.warning("Skipping non-existent item in batch delete", { id, userId })
-          continue
-        }
-
-        const item = doc.data() as ContentItem
-
-        if (item.userId !== userId) {
-          this.logger.warning("Skipping item user doesn't own in batch delete", {
-            id,
-            userId,
-            ownerId: item.userId,
-          })
-          continue
-        }
-
-        batch.delete(docRef)
-      }
-
-      await batch.commit()
-
-      this.logger.info("Batch deleted content items", {
-        userId,
-        count: ids.length,
-      })
-    } catch (error) {
-      this.logger.error("Failed to batch delete content items", { error, userId, ids })
-      throw error
-    }
-  }
-
-  /**
-   * ============================================================================
-   * UTILITY OPERATIONS
-   * ============================================================================
-   */
-
-  /**
-   * Change visibility of an item
-   */
-  async changeVisibility(
-    id: string,
-    visibility: ContentItemVisibility,
-    userId: string
-  ): Promise<ContentItem> {
-    try {
-      return await this.updateItem(id, { visibility }, userId)
-    } catch (error) {
-      this.logger.error("Failed to change visibility", { error, id, userId, visibility })
-      throw error
-    }
-  }
-
-  /**
-   * Get items by tag
-   */
-  async getItemsByTag(tag: string, userId: string): Promise<ContentItem[]> {
-    try {
-      const snapshot = await this.db
-        .collection(this.collectionName)
-        .where("userId", "==", userId)
-        .where("tags", "array-contains", tag)
-        .get()
-
-      const items = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as ContentItem[]
-
-      this.logger.info("Retrieved items by tag", {
-        userId,
-        tag,
         count: items.length,
+        updatedBy: userEmail,
+      })
+    } catch (error) {
+      this.logger.error("Failed to reorder content items", {
+        error,
+        items,
+        userEmail,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Change visibility of a content item
+   */
+  async setVisibility(id: string, visibility: ContentItemVisibility, userEmail: string): Promise<ContentItem> {
+    return this.updateItem(id, { visibility }, userEmail)
+  }
+
+  /**
+   * Get items by type
+   */
+  async getItemsByType(type: ContentItemType): Promise<ContentItem[]> {
+    return this.listItems({ type })
+  }
+
+  /**
+   * Get the full hierarchy tree starting from root items
+   * Returns items with a children property
+   */
+  async getHierarchy(): Promise<Array<ContentItem & { children?: ContentItem[] }>> {
+    try {
+      // Get all items
+      const allItems = await this.listItems()
+
+      // Build a map for quick lookup
+      const itemMap = new Map<string, ContentItem & { children?: ContentItem[] }>()
+      allItems.forEach((item) => {
+        itemMap.set(item.id, { ...item, children: [] })
       })
 
-      return items
+      // Build hierarchy
+      const rootItems: Array<ContentItem & { children?: ContentItem[] }> = []
+
+      allItems.forEach((item) => {
+        const itemWithChildren = itemMap.get(item.id)!
+
+        if (item.parentId === null) {
+          // Root item
+          rootItems.push(itemWithChildren)
+        } else {
+          // Child item - add to parent's children array
+          const parent = itemMap.get(item.parentId)
+          if (parent) {
+            if (!parent.children) {
+              parent.children = []
+            }
+            parent.children.push(itemWithChildren)
+          }
+        }
+      })
+
+      this.logger.info("Retrieved content item hierarchy", {
+        totalItems: allItems.length,
+        rootItems: rootItems.length,
+      })
+
+      return rootItems
     } catch (error) {
-      this.logger.error("Failed to get items by tag", { error, userId, tag })
+      this.logger.error("Failed to get content item hierarchy", { error })
       throw error
     }
   }
-
-  /**
-   * Get nested items (e.g., projects under a company)
-   */
-  async getNestedItems(parentId: string, userId: string): Promise<ContentItem[]> {
-    try {
-      return await this.listItems(userId, { parentId })
-    } catch (error) {
-      this.logger.error("Failed to get nested items", { error, userId, parentId })
-      throw error
-    }
-  }
-
-  /**
-   * Count items by type
-   */
-  async countItemsByType(userId: string): Promise<Record<ContentItemType, number>> {
-    try {
-      const allItems = await this.listItems(userId)
-
-      const counts: Record<string, number> = {}
-      for (const item of allItems) {
-        counts[item.type] = (counts[item.type] || 0) + 1
-      }
-
-      this.logger.info("Counted items by type", { userId, counts })
-
-      return counts as Record<ContentItemType, number>
-    } catch (error) {
-      this.logger.error("Failed to count items by type", { error, userId })
-      throw error
-    }
-  }
-}
-
-/**
- * Helper function to create a Content Item service instance
- */
-export function createContentItemService(logger?: SimpleLogger): ContentItemService {
-  return new ContentItemService(logger)
 }

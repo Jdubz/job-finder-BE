@@ -1,571 +1,523 @@
+import { createFirestoreInstance } from "../config/firestore";
+import { createDefaultLogger } from "../utils/logger";
+import type { SimpleLogger } from "../types/logger.types";
+import type {
+  QueueItem,
+  QueueStats,
+  StopList,
+  AISettings,
+  QueueSettings,
+  StopListCheckResult,
+  ScrapeConfig,
+  QueueSource,
+  CompanySubTask,
+} from "../types/job-queue.types";
+
 /**
  * Job Queue Service
  *
- * Manages the job application queue for tracking user's job opportunities.
- * Includes stop-list matching, duplicate detection, and status management.
- *
- * Queue lifecycle:
- * - pending: Newly added, waiting to be processed
- * - processing: Currently being scraped/analyzed
- * - success: Successfully processed and saved to job-matches
- * - failed: Processing error occurred
- * - skipped: Skipped (duplicate or stop-list blocked)
- * - filtered: Rejected by filter engine
+ * Manages job queue operations, stop list validation, and queue statistics.
+ * Integrates with Firestore for persistent storage and real-time updates.
  */
-
-import { FieldValue } from "@google-cloud/firestore"
-import type { SimpleLogger } from "../types/logger.types"
-import { createDefaultLogger } from "../utils/logger"
-import { createFirestoreInstance } from "../config/firestore"
-import { JOB_QUEUE_COLLECTION } from "../config/database"
-import type {
-  QueueItem,
-  QueueStatus,
-  QueueItemType,
-  QueueSource,
-  StopList,
-} from "@jsdubzw/job-finder-shared-types"
-
-/**
- * Data for creating a new queue item
- */
-export interface CreateQueueItemData {
-  type: QueueItemType
-  url: string
-  companyName: string
-  companyId?: string | null
-  source?: QueueSource
-  submittedBy?: string | null // User UID
-}
-
-/**
- * Data for updating a queue item
- */
-export interface UpdateQueueItemData {
-  status?: QueueStatus
-  resultMessage?: string
-  errorDetails?: string
-  retryCount?: number
-  processedAt?: Date
-  completedAt?: Date
-}
-
 export class JobQueueService {
-  private db: FirebaseFirestore.Firestore
-  private logger: SimpleLogger
-  private collectionName: string
-  private stopListDocPath = "job-finder-config/stop-list"
+  private db: FirebaseFirestore.Firestore;
+  private logger: SimpleLogger;
+  private readonly queueCollection = "job-queue";
+  private readonly configCollection = "job-finder-config";
 
   constructor(logger?: SimpleLogger) {
-    this.collectionName = JOB_QUEUE_COLLECTION
-    this.db = createFirestoreInstance()
-    this.logger = logger || createDefaultLogger()
+    this.db = createFirestoreInstance();
+    this.logger = logger || createDefaultLogger();
   }
 
   /**
-   * ============================================================================
-   * QUEUE ITEM OPERATIONS
-   * ============================================================================
+   * Submit a job to the queue
+   *
+   * If generationId is provided, the job will be marked as having documents already generated
+   * userId can be null for anonymous submissions
    */
-
-  /**
-   * List queue items for a user
-   */
-  async listItems(
-    userId: string,
-    options?: {
-      status?: QueueStatus
-      type?: QueueItemType
-      limit?: number
-    }
-  ): Promise<QueueItem[]> {
+  async submitJob(
+    url: string,
+    companyName: string | undefined,
+    userId: string | null,
+    generationId?: string
+  ): Promise<QueueItem & { id: string }> {
     try {
-      let query = this.db
-        .collection(this.collectionName)
-        .where("submitted_by", "==", userId) as FirebaseFirestore.Query
+      // Get queue settings for max retries
+      const settings = await this.getQueueSettings();
+      const now = new Date();
 
-      if (options?.status) {
-        query = query.where("status", "==", options.status)
-      }
-
-      if (options?.type) {
-        query = query.where("type", "==", options.type)
-      }
-
-      // Order by created date (newest first)
-      query = query.orderBy("created_at", "desc")
-
-      if (options?.limit) {
-        query = query.limit(options.limit)
-      }
-
-      const snapshot = await query.get()
-      const items = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as QueueItem[]
-
-      this.logger.info("Retrieved queue items", {
-        userId,
-        count: items.length,
-        status: options?.status,
-        type: options?.type,
-      })
-
-      return items
-    } catch (error) {
-      this.logger.error("Failed to list queue items", { error, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Get a single queue item by ID
-   */
-  async getItem(id: string, userId: string): Promise<QueueItem | null> {
-    try {
-      const docRef = this.db.collection(this.collectionName).doc(id)
-      const doc = await docRef.get()
-
-      if (!doc.exists) {
-        this.logger.info("Queue item not found", { id, userId })
-        return null
-      }
-
-      const item = {
-        id: doc.id,
-        ...doc.data(),
-      } as QueueItem
-
-      // Verify ownership
-      if (item.submitted_by !== userId) {
-        this.logger.warning("User attempted to access queue item they don't own", {
-          id,
-          userId,
-          ownerId: item.submitted_by,
-        })
-        return null
-      }
-
-      this.logger.info("Retrieved queue item", { id, userId })
-      return item
-    } catch (error) {
-      this.logger.error("Failed to get queue item", { error, id, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Create a new queue item with duplicate detection and stop-list checking
-   */
-  async createItem(data: CreateQueueItemData, userId: string): Promise<QueueItem> {
-    try {
-      // Check for duplicates
-      const isDuplicate = await this.checkDuplicate(data.url, userId)
-      if (isDuplicate) {
-        throw new Error("A queue item with this URL already exists")
-      }
-
-      // Check stop-list
-      const isBlocked = await this.checkStopList(data.companyName, data.url)
-      if (isBlocked) {
-        throw new Error("This company or URL is on the stop-list")
-      }
-
-      const docRef = this.db.collection(this.collectionName).doc()
-
-      const item: Omit<QueueItem, "id"> = {
-        type: data.type,
-        status: "pending",
-        url: data.url,
-        company_name: data.companyName,
-        company_id: data.companyId || null,
-        source: data.source || "user_submission",
-        submitted_by: data.submittedBy || userId,
+      const queueItem: QueueItem = {
+        type: "job",
+        status: generationId ? "success" : "pending",
+        url,
+        company_name: companyName || "",
+        company_id: null,
+        source: "user_submission" as QueueSource,
+        submitted_by: userId,
         retry_count: 0,
-        max_retries: 3,
-        created_at: FieldValue.serverTimestamp(),
-        updated_at: FieldValue.serverTimestamp(),
-      }
+        max_retries: settings.maxRetries,
+        created_at: now,
+        updated_at: now,
+        ...(generationId && {
+          result_message: "Documents already generated via Document Builder",
+          completed_at: now,
+          metadata: {
+            generationId,
+            documentsPreGenerated: true,
+          },
+        }),
+      };
 
-      await docRef.set(item)
+      const docRef = await this.db.collection(this.queueCollection).add(queueItem);
 
-      this.logger.info("Created queue item", {
+      this.logger.info("Job submitted to queue", {
+        queueItemId: docRef.id,
+        url,
+        userId,
+        hasPreGeneratedDocs: !!generationId,
+      });
+
+      return {
         id: docRef.id,
+        ...queueItem,
+      };
+    } catch (error) {
+      this.logger.error("Failed to submit job to queue", {
+        error,
+        url,
         userId,
-        type: data.type,
-        url: data.url,
-        company: data.companyName,
-      })
-
-      // Fetch created document to get server timestamps
-      const createdDoc = await docRef.get()
-      return {
-        id: createdDoc.id,
-        ...createdDoc.data(),
-      } as QueueItem
-    } catch (error) {
-      this.logger.error("Failed to create queue item", { error, userId })
-      throw error
+      });
+      throw error;
     }
   }
 
   /**
-   * Update a queue item
+   * Submit a company to the queue
+   *
+   * Creates a queue item with type "company" for company analysis pipeline
    */
-  async updateItem(
-    id: string,
-    data: UpdateQueueItemData,
-    userId: string
-  ): Promise<QueueItem> {
+  async submitCompany(
+    companyName: string,
+    websiteUrl: string,
+    source: QueueSource,
+    userId: string | null
+  ): Promise<QueueItem & { id: string }> {
     try {
-      const docRef = this.db.collection(this.collectionName).doc(id)
-      const doc = await docRef.get()
+      // Get queue settings for max retries
+      const settings = await this.getQueueSettings();
+      const now = new Date();
 
-      if (!doc.exists) {
-        throw new Error(`Queue item not found: ${id}`)
-      }
+      const queueItem: QueueItem = {
+        type: "company",
+        status: "pending",
+        url: websiteUrl,
+        company_name: companyName,
+        company_id: null,
+        source,
+        submitted_by: userId,
+        retry_count: 0,
+        max_retries: settings.maxRetries,
+        created_at: now,
+        updated_at: now,
+        company_sub_task: "fetch" as CompanySubTask,
+      };
 
-      const existingItem = doc.data() as QueueItem
+      const docRef = await this.db.collection(this.queueCollection).add(queueItem);
 
-      // Verify ownership
-      if (existingItem.submitted_by !== userId) {
-        throw new Error("User does not have permission to update this queue item")
-      }
-
-      // Build updates object
-      const updates: Record<string, unknown> = {
-        ...data,
-        updated_at: FieldValue.serverTimestamp(),
-      }
-
-      await docRef.update(updates)
-
-      this.logger.info("Updated queue item", {
-        id,
+      this.logger.info("Company submitted to queue", {
+        queueItemId: docRef.id,
+        companyName,
+        websiteUrl,
+        source,
         userId,
-        fieldsUpdated: Object.keys(data),
-      })
+      });
 
-      // Fetch updated document
-      const updatedDoc = await docRef.get()
       return {
-        id: updatedDoc.id,
-        ...updatedDoc.data(),
-      } as QueueItem
+        id: docRef.id,
+        ...queueItem,
+      };
     } catch (error) {
-      this.logger.error("Failed to update queue item", { error, id, userId })
-      throw error
+      this.logger.error("Failed to submit company to queue", {
+        error,
+        companyName,
+        websiteUrl,
+        source,
+        userId,
+      });
+      throw error;
     }
   }
 
   /**
-   * Delete a queue item
+   * Submit a scrape request to the queue
+   *
+   * Creates a queue item with type "scrape" and the provided configuration
    */
-  async deleteItem(id: string, userId: string): Promise<void> {
+  async submitScrape(
+    userId: string,
+    scrapeConfig?: ScrapeConfig
+  ): Promise<QueueItem & { id: string }> {
     try {
-      const docRef = this.db.collection(this.collectionName).doc(id)
-      const doc = await docRef.get()
+      // Get queue settings for max retries
+      const settings = await this.getQueueSettings();
+      const now = new Date();
 
-      if (!doc.exists) {
-        throw new Error(`Queue item not found: ${id}`)
-      }
+      const queueItem: QueueItem = {
+        type: "scrape",
+        status: "pending",
+        url: "",
+        company_name: "",
+        company_id: null,
+        source: "user_submission" as QueueSource,
+        submitted_by: userId,
+        retry_count: 0,
+        max_retries: settings.maxRetries,
+        created_at: now,
+        updated_at: now,
+        scrape_config: scrapeConfig || {
+          target_matches: 5,
+          max_sources: 20,
+        },
+      };
 
-      const existingItem = doc.data() as QueueItem
+      const docRef = await this.db.collection(this.queueCollection).add(queueItem);
 
-      // Verify ownership
-      if (existingItem.submitted_by !== userId) {
-        throw new Error("User does not have permission to delete this queue item")
-      }
+      this.logger.info("Scrape request submitted to queue", {
+        queueItemId: docRef.id,
+        userId,
+        config: scrapeConfig,
+      });
 
-      await docRef.delete()
-
-      this.logger.info("Deleted queue item", { id, userId })
+      return {
+        id: docRef.id,
+        ...queueItem,
+      };
     } catch (error) {
-      this.logger.error("Failed to delete queue item", { error, id, userId })
-      throw error
+      this.logger.error("Failed to submit scrape request to queue", {
+        error,
+        userId,
+        config: scrapeConfig,
+      });
+      throw error;
     }
   }
 
   /**
-   * ============================================================================
-   * DUPLICATE DETECTION
-   * ============================================================================
+   * Check if user has a pending scrape request
+   *
+   * Returns true if user has any queue item with type "scrape" and status "pending" or "processing"
    */
-
-  /**
-   * Check if a URL already exists in the queue for this user
-   */
-  async checkDuplicate(url: string, userId: string): Promise<boolean> {
+  async hasPendingScrape(userId: string): Promise<boolean> {
     try {
-      const normalizedUrl = this.normalizeUrl(url)
-
       const snapshot = await this.db
-        .collection(this.collectionName)
+        .collection(this.queueCollection)
         .where("submitted_by", "==", userId)
-        .where("url", "==", normalizedUrl)
+        .where("type", "==", "scrape")
+        .where("status", "in", ["pending", "processing"])
         .limit(1)
-        .get()
+        .get();
 
-      const isDuplicate = !snapshot.empty
-
-      if (isDuplicate) {
-        this.logger.info("Duplicate URL detected", { url, userId })
-      }
-
-      return isDuplicate
+      return !snapshot.empty;
     } catch (error) {
-      this.logger.error("Failed to check for duplicates", { error, url, userId })
-      throw error
+      this.logger.error("Failed to check for pending scrape", { error, userId });
+      // Return false on error to allow submission (fail open)
+      return false;
     }
   }
 
   /**
-   * Normalize URL for duplicate detection
-   * Removes trailing slashes, query params, and fragments
+   * Get queue item status by ID
    */
-  private normalizeUrl(url: string): string {
+  async getQueueStatus(queueItemId: string): Promise<(QueueItem & { id: string }) | null> {
     try {
-      const urlObj = new URL(url)
-      // Keep protocol, host, and pathname only
-      let normalized = `${urlObj.protocol}//${urlObj.host}${urlObj.pathname}`
-      // Remove trailing slash
-      if (normalized.endsWith("/")) {
-        normalized = normalized.slice(0, -1)
-      }
-      return normalized
-    } catch {
-      // If URL parsing fails, return original
-      return url
-    }
-  }
-
-  /**
-   * ============================================================================
-   * STOP-LIST CHECKING
-   * ============================================================================
-   */
-
-  /**
-   * Check if company or URL is on the stop-list
-   */
-  async checkStopList(companyName: string, url: string): Promise<boolean> {
-    try {
-      const stopList = await this.getStopList()
-
-      if (!stopList) {
-        return false // No stop-list configured
-      }
-
-      // Check company name (case-insensitive)
-      const normalizedCompany = companyName.toLowerCase().trim()
-      const blockedCompany = stopList.excludedCompanies?.some((excluded) =>
-        normalizedCompany.includes(excluded.toLowerCase().trim())
-      )
-
-      if (blockedCompany) {
-        this.logger.info("Company blocked by stop-list", { companyName })
-        return true
-      }
-
-      // Check URL domain
-      try {
-        const urlObj = new URL(url)
-        const domain = urlObj.hostname.replace(/^www\./, "") // Remove www. prefix
-        const blockedDomain = stopList.excludedDomains?.some((excluded) =>
-          domain.includes(excluded.toLowerCase().trim())
-        )
-
-        if (blockedDomain) {
-          this.logger.info("URL domain blocked by stop-list", { url, domain })
-          return true
-        }
-      } catch {
-        // Invalid URL, skip domain check
-      }
-
-      // Check keywords in company name and URL
-      const textToCheck = `${companyName} ${url}`.toLowerCase()
-      const blockedKeyword = stopList.excludedKeywords?.some((keyword) =>
-        textToCheck.includes(keyword.toLowerCase().trim())
-      )
-
-      if (blockedKeyword) {
-        this.logger.info("Keyword blocked by stop-list", { companyName, url })
-        return true
-      }
-
-      return false
-    } catch (error) {
-      this.logger.error("Failed to check stop-list", { error, companyName, url })
-      // Fail open - don't block if stop-list check fails
-      return false
-    }
-  }
-
-  /**
-   * Get the stop-list configuration
-   */
-  async getStopList(): Promise<StopList | null> {
-    try {
-      const docRef = this.db.doc(this.stopListDocPath)
-      const doc = await docRef.get()
+      const docRef = this.db.collection(this.queueCollection).doc(queueItemId);
+      const doc = await docRef.get();
 
       if (!doc.exists) {
-        return null
+        return null;
       }
 
-      return doc.data() as StopList
+      return {
+        id: doc.id,
+        ...doc.data() as QueueItem,
+      };
     } catch (error) {
-      this.logger.error("Failed to get stop-list", { error })
-      throw error
+      this.logger.error("Failed to get queue status", { error, queueItemId });
+      throw error;
     }
   }
 
   /**
-   * Update the stop-list configuration
+   * Get queue statistics
    */
-  async updateStopList(data: Partial<StopList>, userId: string): Promise<StopList> {
+  async getQueueStats(): Promise<QueueStats> {
     try {
-      const docRef = this.db.doc(this.stopListDocPath)
+      const snapshot = await this.db.collection(this.queueCollection).get();
 
-      const updates = {
-        ...data,
-        updatedAt: FieldValue.serverTimestamp(),
-        updatedBy: userId,
-      }
-
-      await docRef.set(updates, { merge: true })
-
-      this.logger.info("Updated stop-list", { userId })
-
-      const updatedDoc = await docRef.get()
-      return updatedDoc.data() as StopList
-    } catch (error) {
-      this.logger.error("Failed to update stop-list", { error, userId })
-      throw error
-    }
-  }
-
-  /**
-   * ============================================================================
-   * BATCH OPERATIONS
-   * ============================================================================
-   */
-
-  /**
-   * Batch delete queue items
-   */
-  async batchDelete(ids: string[], userId: string): Promise<void> {
-    try {
-      const batch = this.db.batch()
-
-      for (const id of ids) {
-        const docRef = this.db.collection(this.collectionName).doc(id)
-        const doc = await docRef.get()
-
-        if (!doc.exists) {
-          this.logger.warning("Skipping non-existent item in batch delete", { id, userId })
-          continue
-        }
-
-        const item = doc.data() as QueueItem
-
-        if (item.submitted_by !== userId) {
-          this.logger.warning("Skipping item user doesn't own in batch delete", {
-            id,
-            userId,
-            ownerId: item.submitted_by,
-          })
-          continue
-        }
-
-        batch.delete(docRef)
-      }
-
-      await batch.commit()
-
-      this.logger.info("Batch deleted queue items", {
-        userId,
-        count: ids.length,
-      })
-    } catch (error) {
-      this.logger.error("Failed to batch delete queue items", { error, userId, ids })
-      throw error
-    }
-  }
-
-  /**
-   * Clear completed items (success, failed, skipped)
-   */
-  async clearCompleted(userId: string): Promise<number> {
-    try {
-      const completedStatuses: QueueStatus[] = ["success", "failed", "skipped", "filtered"]
-
-      const snapshot = await this.db
-        .collection(this.collectionName)
-        .where("submitted_by", "==", userId)
-        .where("status", "in", completedStatuses)
-        .get()
-
-      const batch = this.db.batch()
-      snapshot.docs.forEach((doc) => {
-        batch.delete(doc.ref)
-      })
-
-      await batch.commit()
-
-      this.logger.info("Cleared completed queue items", {
-        userId,
-        count: snapshot.size,
-      })
-
-      return snapshot.size
-    } catch (error) {
-      this.logger.error("Failed to clear completed items", { error, userId })
-      throw error
-    }
-  }
-
-  /**
-   * ============================================================================
-   * STATISTICS
-   * ============================================================================
-   */
-
-  /**
-   * Get queue statistics for a user
-   */
-  async getStatistics(userId: string): Promise<Record<QueueStatus, number>> {
-    try {
-      const items = await this.listItems(userId)
-
-      const stats: Record<string, number> = {
+      const stats: QueueStats = {
+        total: snapshot.size,
         pending: 0,
         processing: 0,
         success: 0,
         failed: 0,
         skipped: 0,
         filtered: 0,
-      }
+      };
 
-      for (const item of items) {
-        stats[item.status] = (stats[item.status] || 0) + 1
-      }
+      snapshot.forEach((doc) => {
+        const item = doc.data() as QueueItem;
 
-      this.logger.info("Retrieved queue statistics", { userId, stats })
+        // Count by status
+        if (item.status === "pending") stats.pending++;
+        else if (item.status === "processing") stats.processing++;
+        else if (item.status === "success") stats.success++;
+        else if (item.status === "failed") stats.failed++;
+        else if (item.status === "skipped") stats.skipped++;
+        else if (item.status === "filtered") stats.filtered++;
+      });
 
-      return stats as Record<QueueStatus, number>
+      return stats;
     } catch (error) {
-      this.logger.error("Failed to get queue statistics", { error, userId })
-      throw error
+      this.logger.error("Failed to get queue stats", { error });
+      throw error;
     }
   }
-}
 
-/**
- * Helper function to create a Job Queue service instance
- */
-export function createJobQueueService(logger?: SimpleLogger): JobQueueService {
-  return new JobQueueService(logger)
+  /**
+   * Retry a failed queue item
+   */
+  async retryQueueItem(queueItemId: string): Promise<void> {
+    try {
+      const docRef = this.db.collection(this.queueCollection).doc(queueItemId);
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+        throw new Error("Queue item not found");
+      }
+
+      const item = doc.data() as QueueItem;
+
+      if (item.status !== "failed") {
+        throw new Error("Can only retry failed queue items");
+      }
+
+      if (item.retry_count >= item.max_retries) {
+        throw new Error("Maximum retry count exceeded");
+      }
+
+      await docRef.update({
+        status: "pending",
+        retry_count: item.retry_count + 1,
+        updated_at: new Date(),
+        error_message: null,
+      });
+
+      this.logger.info("Queue item retry initiated", {
+        queueItemId,
+        retryCount: item.retry_count + 1,
+      });
+    } catch (error) {
+      this.logger.error("Failed to retry queue item", { error, queueItemId });
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a queue item
+   */
+  async deleteQueueItem(queueItemId: string): Promise<void> {
+    try {
+      await this.db.collection(this.queueCollection).doc(queueItemId).delete();
+
+      this.logger.info("Queue item deleted", { queueItemId });
+    } catch (error) {
+      this.logger.error("Failed to delete queue item", { error, queueItemId });
+      throw error;
+    }
+  }
+
+  /**
+   * Get stop list configuration
+   */
+  async getStopList(): Promise<StopList> {
+    try {
+      const docRef = this.db.collection(this.configCollection).doc("stopList");
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+        // Return default empty stop list
+        return {
+          excludedCompanies: [],
+          excludedKeywords: [],
+          excludedDomains: [],
+        };
+      }
+
+      return doc.data() as StopList;
+    } catch (error) {
+      this.logger.error("Failed to get stop list", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Update stop list configuration
+   */
+  async updateStopList(stopList: StopList): Promise<void> {
+    try {
+      await this.db
+        .collection(this.configCollection)
+        .doc("stopList")
+        .set(stopList, { merge: true });
+
+      this.logger.info("Stop list updated", {
+        companiesCount: stopList.excludedCompanies.length,
+        keywordsCount: stopList.excludedKeywords.length,
+        domainsCount: stopList.excludedDomains.length,
+      });
+    } catch (error) {
+      this.logger.error("Failed to update stop list", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get AI settings configuration
+   */
+  async getAISettings(): Promise<AISettings> {
+    try {
+      const docRef = this.db.collection(this.configCollection).doc("aiSettings");
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+        // Return default AI settings
+        return {
+          provider: "claude",
+          model: "claude-3-5-sonnet-20241022",
+          minMatchScore: 70,
+          costBudgetDaily: 10.0,
+        };
+      }
+
+      return doc.data() as AISettings;
+    } catch (error) {
+      this.logger.error("Failed to get AI settings", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Update AI settings configuration
+   */
+  async updateAISettings(settings: AISettings): Promise<void> {
+    try {
+      await this.db
+        .collection(this.configCollection)
+        .doc("aiSettings")
+        .set(settings, { merge: true });
+
+      this.logger.info("AI settings updated", settings);
+    } catch (error) {
+      this.logger.error("Failed to update AI settings", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Get queue settings configuration
+   */
+  async getQueueSettings(): Promise<QueueSettings> {
+    try {
+      const docRef = this.db.collection(this.configCollection).doc("queueSettings");
+      const doc = await docRef.get();
+
+      if (!doc.exists) {
+        // Return default queue settings
+        return {
+          maxRetries: 3,
+          retryDelaySeconds: 300,
+          processingTimeout: 3600,
+        };
+      }
+
+      return doc.data() as QueueSettings;
+    } catch (error) {
+      this.logger.error("Failed to get queue settings", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Update queue settings configuration
+   */
+  async updateQueueSettings(settings: QueueSettings): Promise<void> {
+    try {
+      await this.db
+        .collection(this.configCollection)
+        .doc("queueSettings")
+        .set(settings, { merge: true });
+
+      this.logger.info("Queue settings updated", settings);
+    } catch (error) {
+      this.logger.error("Failed to update queue settings", { error });
+      throw error;
+    }
+  }
+
+  /**
+   * Check if a job should be filtered by stop list
+   */
+  async checkStopList(
+    companyName: string,
+    url: string
+  ): Promise<StopListCheckResult> {
+    try {
+      const stopList = await this.getStopList();
+      const result: StopListCheckResult = {
+        allowed: true,
+      };
+
+      // Extract domain from URL
+      const domain = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+
+      // Check excluded domains
+      if (stopList.excludedDomains.some((d) => domain.includes(d.toLowerCase()))) {
+        result.allowed = false;
+        result.reason = "domain";
+        return result;
+      }
+
+      // Check excluded companies
+      const lowerCompanyName = companyName.toLowerCase();
+      if (
+        stopList.excludedCompanies.some((company) =>
+          lowerCompanyName.includes(company.toLowerCase())
+        )
+      ) {
+        result.allowed = false;
+        result.reason = "company";
+        return result;
+      }
+
+      // Check excluded keywords
+      if (
+        stopList.excludedKeywords.some((keyword) =>
+          lowerCompanyName.includes(keyword.toLowerCase())
+        )
+      ) {
+        result.allowed = false;
+        result.reason = "keyword";
+        return result;
+      }
+
+      return result;
+    } catch (error) {
+      this.logger.error("Failed to check stop list", { error, companyName, url });
+      // Return allowed on error (fail open)
+      return {
+        allowed: true,
+      };
+    }
+  }
 }
