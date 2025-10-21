@@ -1,12 +1,47 @@
 # User Role Management Scripts
 
-Scripts for managing user roles in Firestore across all environments.
+Scripts for managing user roles across all environments.
+
+## ⚠️ IMPORTANT: Custom Claims vs Firestore Documents
+
+There are TWO different systems for roles:
+
+1. **Firebase Auth Custom Claims** (JWT token) - Used by Cloud Functions middleware and Firestore rules
+2. **Firestore User Documents** - Used for UI display only
+
+**For authentication to work**, you MUST set custom claims on the Firebase Auth token.
 
 ## Available Scripts
 
-### Add Editor Role
+### ✅ Set Custom Claims (RECOMMENDED)
 
-Adds the `{ "role": "editor" }` field to a user document.
+Sets Firebase Auth custom claims on the user's authentication token. This is what Cloud Functions and Firestore rules check.
+
+```bash
+# Local emulator
+npm run script:set-claims -- <user-id> <role> local
+
+# Staging
+npm run script:set-claims -- <user-id> <role> staging
+
+# Production
+npm run script:set-claims -- <user-id> <role> production
+```
+
+**Roles**: `viewer`, `editor`, `admin`
+
+**Example**:
+```bash
+npm run script:set-claims -- abc123 editor local
+```
+
+**⚠️ After running**: User MUST sign out and sign back in for claims to take effect!
+
+### ⚠️ Add Editor Role (DEPRECATED)
+
+Adds the `{ "role": "editor" }` field to a Firestore user document.
+
+**WARNING**: This does NOT set Firebase Auth custom claims! Use `script:set-claims` instead.
 
 ```bash
 # Local emulator

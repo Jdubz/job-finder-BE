@@ -23,7 +23,8 @@
     "logs": "firebase functions:log",
     "clean": "rm -rf dist functions/dist",
     "script:add-editor": "ts-node --project tsconfig.scripts.json scripts/users/add-editor-role.ts",
-    "script:remove-editor": "ts-node --project tsconfig.scripts.json scripts/users/remove-editor-role.ts"
+    "script:remove-editor": "ts-node --project tsconfig.scripts.json scripts/users/remove-editor-role.ts",
+    "script:set-claims": "ts-node --project tsconfig.scripts.json scripts/users/set-custom-claims.ts"
   },
   "dependencies": {
     "@genkit-ai/ai": "^1.21.0",
