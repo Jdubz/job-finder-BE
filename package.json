@@ -13,7 +13,7 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "build": "tsc",
+    "build": "cd functions && npm run build",
     "build:watch": "cd functions && npm run dev",
     "deploy": "firebase deploy --only functions",
     "deploy:staging": "firebase deploy --only functions --project staging",
