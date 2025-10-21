@@ -325,10 +325,46 @@ Monitor function performance in:
 
 ## CI/CD
 
-GitHub Actions workflow automatically:
-1. Runs tests on pull requests
-2. Deploys to staging on merge to `staging` branch
-3. Deploys to production on merge to `main` branch
+### Workflows
+
+The repository uses two GitHub Actions workflows:
+
+1. **CI Pipeline** (`.github/workflows/ci.yml`)
+   - Runs on all branches and pull requests
+   - Executes: lint, test, build
+   - Required to pass before merge
+
+2. **Deployment Pipeline** (`.github/workflows/deploy-functions.yml`)
+   - Deploys to staging on push to `staging` branch
+   - Deploys to production on push to `main` branch
+   - Uses workload identity federation (no service account keys)
+   - Deploys only changed functions for efficiency
+
+### CI Troubleshooting
+
+**Deployment fails with authentication error:**
+- Check that GitHub repository has workload identity bindings configured
+- Verify the service account exists: `github-actions-deployer@static-sites-257923.iam.gserviceaccount.com`
+- Confirm GitHub environments are set up: `staging`, `production`
+
+**Functions not deploying:**
+- Verify changes are in `functions/**` directory
+- Check that the workflow file path filter matches your changes
+- Review deployment logs in GitHub Actions
+
+**Build or test failures:**
+- Run locally: `npm ci && npm run lint && npm test && npm run build`
+- Check that Node.js version matches (20)
+- Ensure all dependencies are in `package.json`
+
+**Permissions errors:**
+- The deployment uses workload identity, not service account keys
+- No GitHub secrets are required for deployment (only for local dev)
+- See `CICD_REVIEW.md` for detailed IAM setup documentation
+
+For detailed pipeline documentation, see:
+- `CICD_REVIEW.md` - Comprehensive pipeline review and troubleshooting
+- `.github/workflows/README.md` - Workflow-specific documentation (if exists)
 
 ## Contributing
 
