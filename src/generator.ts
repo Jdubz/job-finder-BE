@@ -1866,7 +1866,7 @@ export const manageGenerator = https.onRequest(
     maxInstances: 10,
     timeoutSeconds: 300, // 5 minutes for generation
     secrets: ["openai-api-key", "gemini-api-key"],
-    serviceAccount: "cloud-functions-builder@static-sites-257923.iam.gserviceaccount.com",
+    serviceAccount: "firebase-admin@static-sites-257923.iam.gserviceaccount.com",
   },
   handleGeneratorRequest
 )

@@ -825,7 +825,7 @@ export const manageExperience = https.onRequest(
     memory: "256MiB",
     maxInstances: 10,
     timeoutSeconds: 60,
-    serviceAccount: "789847666726-compute@developer.gserviceaccount.com",
+    serviceAccount: "firebase-admin@static-sites-257923.iam.gserviceaccount.com",
   },
   handleExperienceRequest
 )

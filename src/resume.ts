@@ -326,7 +326,7 @@ export const uploadResume = https.onRequest(
     memory: "512MiB",
     maxInstances: 5,
     timeoutSeconds: 60,
-    serviceAccount: "cloud-functions-builder@static-sites-257923.iam.gserviceaccount.com",
+    serviceAccount: "firebase-admin@static-sites-257923.iam.gserviceaccount.com",
   },
   handleResumeRequest
 )

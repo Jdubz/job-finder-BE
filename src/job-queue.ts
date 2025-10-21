@@ -1001,6 +1001,7 @@ export const manageJobQueue = functions.https.onRequest(
     memory: '512MiB',
     maxInstances: 10,
     timeoutSeconds: 300,
+    serviceAccount: 'firebase-admin@static-sites-257923.iam.gserviceaccount.com',
   },
   handleJobQueueRequest
 );

@@ -14,9 +14,7 @@
       "predeploy": [
         "npm run lint",
         "npm run build"
-      ],
-      "runtime": "nodejs20",
-      "serviceAccount": "firebase-admin@static-sites-257923.iam.gserviceaccount.com"
+      ]
     }
   ],
   "firestore": {
