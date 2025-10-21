@@ -13,7 +13,6 @@ export function createMockLogger(): jest.Mocked<Logger> {
     info: jest.fn(),
     warning: jest.fn(),
     error: jest.fn(),
-    debug: jest.fn(),
   }
 }
 
