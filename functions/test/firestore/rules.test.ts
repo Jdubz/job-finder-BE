@@ -41,7 +41,7 @@ describe("Firestore Security Rules", () => {
 
   beforeAll(async () => {
     // Load Firestore rules
-    const rulesPath = path.join(__dirname, "../../firestore.rules")
+    const rulesPath = path.join(process.cwd(), "firestore.rules")
     const rules = fs.readFileSync(rulesPath, "utf8")
 
     // Create test environment

@@ -51,7 +51,7 @@ const EXPECTED_INDEXES = {
 function main() {
   console.log("🔍 Validating Firestore indexes...\n")
 
-  const indexesPath = path.join(__dirname, "../../firestore.indexes.json")
+  const indexesPath = path.join(process.cwd(), "firestore.indexes.json")
 
   if (!fs.existsSync(indexesPath)) {
     console.error("❌ Error: firestore.indexes.json not found at:", indexesPath)

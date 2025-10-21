@@ -40,10 +40,10 @@ service cloud.firestore {
     }
 
     /**
-     * Check if user has viewer role (minimum access)
-     * Viewers can read their own data
+     * Check if user has any valid role (viewer, editor, admin)
+     * Users with any of these roles can read their own data
      */
-    function isViewer() {
+    function isAnyRole() {
       return isAuthenticated() &&
              request.auth.token.role in ['viewer', 'editor', 'admin'];
     }
@@ -211,7 +211,7 @@ service cloud.firestore {
 
     match /job-matches/{matchId} {
       // Users can read their own matches
-      allow read: if isViewer() &&
+      allow read: if isAnyRole() &&
                      resource.data.userId == request.auth.uid;
 
       // Backend functions can write (service account)
