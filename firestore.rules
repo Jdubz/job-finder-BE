@@ -210,8 +210,9 @@ service cloud.firestore {
     // ============================================================
 
     match /job-matches/{matchId} {
-      // Users can read their own matches
+      // Users can read their own matches (userId must exist)
       allow read: if isAnyRole() &&
+                     'userId' in resource.data &&
                      resource.data.userId == request.auth.uid;
 
       // Backend functions can write (service account)
@@ -246,6 +247,19 @@ service cloud.firestore {
 
       // Only admins can manage sources
       allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // JOB FINDER CONFIG COLLECTION
+    // Application configuration (AI prompts, settings)
+    // ============================================================
+
+    match /job-finder-config/{configId} {
+      // All authenticated users can read config
+      allow read: if isAuthenticated();
+
+      // Only editors and admins can update config
+      allow write: if isEditor() || isAdmin();
     }
 
     // ============================================================
