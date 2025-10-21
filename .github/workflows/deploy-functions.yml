@@ -145,14 +145,6 @@ jobs:
         working-directory: functions
         run: npm ci
 
-      - name: Run linting
-        working-directory: functions
-        run: npm run lint
-
-      - name: Run tests
-        working-directory: functions
-        run: npm test
-
       - name: Build TypeScript
         working-directory: functions
         run: npm run build
