@@ -8,6 +8,7 @@
  */
 
 import * as firebase from "@firebase/rules-unit-testing"
+import { Timestamp } from "@google-cloud/firestore"
 import * as fs from "fs"
 import * as path from "path"
 
@@ -40,8 +41,8 @@ describe("Firestore Security Rules", () => {
   let testEnv: firebase.RulesTestEnvironment
 
   beforeAll(async () => {
-    // Load Firestore rules
-    const rulesPath = path.join(process.cwd(), "firestore.rules")
+    // Load Firestore rules (from parent directory)
+    const rulesPath = path.join(process.cwd(), "..", "firestore.rules")
     const rules = fs.readFileSync(rulesPath, "utf8")
 
     // Create test environment
@@ -81,52 +82,52 @@ describe("Firestore Security Rules", () => {
             submitted_by: VIEWER_USER.uid,
             url: "https://example.com/job",
             status: "pending",
-            created_at: firebase.firestore.Timestamp.now(),
+            created_at: Timestamp.now(),
           })
       })
     })
 
     it("allows users to read their own queue items", async () => {
-      const db = testEnv.authenticatedContext(VIEWER_USER.uid, VIEWER_USER).firestore()
+      const db = testEnv.authenticatedContext(VIEWER_USER.uid, { email: VIEWER_USER.email, role: VIEWER_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("job-queue").doc(queueItemId).get())
     })
 
     it("denies users from reading other users' queue items", async () => {
-      const db = testEnv.authenticatedContext(OTHER_USER.uid, OTHER_USER).firestore()
+      const db = testEnv.authenticatedContext(OTHER_USER.uid, { email: OTHER_USER.email, role: OTHER_USER.role }).firestore()
       await firebase.assertFails(db.collection("job-queue").doc(queueItemId).get())
     })
 
     it("allows authenticated users to create queue items", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(
         db.collection("job-queue").add({
           submitted_by: EDITOR_USER.uid,
           url: "https://example.com/new-job",
           status: "pending",
-          created_at: firebase.firestore.Timestamp.now(),
+          created_at: Timestamp.now(),
         })
       )
     })
 
     it("denies creating queue items for other users", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertFails(
         db.collection("job-queue").add({
           submitted_by: VIEWER_USER.uid,
           url: "https://example.com/new-job",
           status: "pending",
-          created_at: firebase.firestore.Timestamp.now(),
+          created_at: Timestamp.now(),
         })
       )
     })
 
     it("allows admins to read all queue items", async () => {
-      const db = testEnv.authenticatedContext(ADMIN_USER.uid, ADMIN_USER).firestore()
+      const db = testEnv.authenticatedContext(ADMIN_USER.uid, { email: ADMIN_USER.email, role: ADMIN_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("job-queue").doc(queueItemId).get())
     })
 
     it("allows admins to delete any queue item", async () => {
-      const db = testEnv.authenticatedContext(ADMIN_USER.uid, ADMIN_USER).firestore()
+      const db = testEnv.authenticatedContext(ADMIN_USER.uid, { email: ADMIN_USER.email, role: ADMIN_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("job-queue").doc(queueItemId).delete())
     })
   })
@@ -149,50 +150,50 @@ describe("Firestore Security Rules", () => {
             access: {
               userId: EDITOR_USER.uid,
             },
-            createdAt: firebase.firestore.Timestamp.now(),
-            updatedAt: firebase.firestore.Timestamp.now(),
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
           })
       })
     })
 
     it("allows users to read their own documents", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("generator-documents").doc(documentId).get())
     })
 
     it("denies users from reading other users' documents", async () => {
-      const db = testEnv.authenticatedContext(OTHER_USER.uid, OTHER_USER).firestore()
+      const db = testEnv.authenticatedContext(OTHER_USER.uid, { email: OTHER_USER.email, role: OTHER_USER.role }).firestore()
       await firebase.assertFails(db.collection("generator-documents").doc(documentId).get())
     })
 
     it("allows editors to create documents", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(
         db.collection("generator-documents").add({
           type: "request",
           access: {
             userId: EDITOR_USER.uid,
           },
-          createdAt: firebase.firestore.Timestamp.now(),
+          createdAt: Timestamp.now(),
         })
       )
     })
 
     it("denies viewers from creating documents", async () => {
-      const db = testEnv.authenticatedContext(VIEWER_USER.uid, VIEWER_USER).firestore()
+      const db = testEnv.authenticatedContext(VIEWER_USER.uid, { email: VIEWER_USER.email, role: VIEWER_USER.role }).firestore()
       await firebase.assertFails(
         db.collection("generator-documents").add({
           type: "request",
           access: {
             userId: VIEWER_USER.uid,
           },
-          createdAt: firebase.firestore.Timestamp.now(),
+          createdAt: Timestamp.now(),
         })
       )
     })
 
     it("allows editors to update their own documents", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(
         db.collection("generator-documents").doc(documentId).update({
           status: "processing",
@@ -201,7 +202,7 @@ describe("Firestore Security Rules", () => {
     })
 
     it("allows admins to access any document", async () => {
-      const db = testEnv.authenticatedContext(ADMIN_USER.uid, ADMIN_USER).firestore()
+      const db = testEnv.authenticatedContext(ADMIN_USER.uid, { email: ADMIN_USER.email, role: ADMIN_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("generator-documents").doc(documentId).get())
       await firebase.assertSucceeds(db.collection("generator-documents").doc(documentId).delete())
     })
@@ -224,37 +225,37 @@ describe("Firestore Security Rules", () => {
             userId: EDITOR_USER.uid,
             type: "experience",
             title: "Senior Developer",
-            createdAt: firebase.firestore.Timestamp.now(),
-            updatedAt: firebase.firestore.Timestamp.now(),
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
           })
       })
     })
 
     it("allows users to read their own content", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("content-items").doc(itemId).get())
     })
 
     it("denies users from reading others' content", async () => {
-      const db = testEnv.authenticatedContext(OTHER_USER.uid, OTHER_USER).firestore()
+      const db = testEnv.authenticatedContext(OTHER_USER.uid, { email: OTHER_USER.email, role: OTHER_USER.role }).firestore()
       await firebase.assertFails(db.collection("content-items").doc(itemId).get())
     })
 
     it("allows editors to create content items", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(
         db.collection("content-items").add({
           userId: EDITOR_USER.uid,
           type: "skill",
           title: "TypeScript",
-          createdAt: firebase.firestore.Timestamp.now(),
-          updatedAt: firebase.firestore.Timestamp.now(),
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
         })
       )
     })
 
     it("prevents changing userId on update", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertFails(
         db.collection("content-items").doc(itemId).update({
           userId: OTHER_USER.uid,
@@ -287,17 +288,17 @@ describe("Firestore Security Rules", () => {
     })
 
     it("allows users to read their own experiences", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("experiences").doc(experienceId).get())
     })
 
     it("denies users from reading others' experiences", async () => {
-      const db = testEnv.authenticatedContext(OTHER_USER.uid, OTHER_USER).firestore()
+      const db = testEnv.authenticatedContext(OTHER_USER.uid, { email: OTHER_USER.email, role: OTHER_USER.role }).firestore()
       await firebase.assertFails(db.collection("experiences").doc(experienceId).get())
     })
 
     it("allows editors to create experiences", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(
         db.collection("experiences").add({
           userId: EDITOR_USER.uid,
@@ -330,17 +331,17 @@ describe("Firestore Security Rules", () => {
     })
 
     it("allows users to read their own personal info", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("personal-info").doc(EDITOR_USER.uid).get())
     })
 
     it("denies users from reading others' personal info", async () => {
-      const db = testEnv.authenticatedContext(OTHER_USER.uid, OTHER_USER).firestore()
+      const db = testEnv.authenticatedContext(OTHER_USER.uid, { email: OTHER_USER.email, role: OTHER_USER.role }).firestore()
       await firebase.assertFails(db.collection("personal-info").doc(EDITOR_USER.uid).get())
     })
 
     it("allows editors to update their own personal info", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertSucceeds(
         db.collection("personal-info").doc(EDITOR_USER.uid).update({
           phone: "555-5678",
@@ -372,12 +373,12 @@ describe("Firestore Security Rules", () => {
     })
 
     it("allows viewers to read their own matches", async () => {
-      const db = testEnv.authenticatedContext(VIEWER_USER.uid, VIEWER_USER).firestore()
+      const db = testEnv.authenticatedContext(VIEWER_USER.uid, { email: VIEWER_USER.email, role: VIEWER_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("job-matches").doc(matchId).get())
     })
 
     it("denies users from writing to job-matches", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertFails(
         db.collection("job-matches").add({
           userId: EDITOR_USER.uid,
@@ -387,7 +388,7 @@ describe("Firestore Security Rules", () => {
     })
 
     it("allows admins to write to job-matches", async () => {
-      const db = testEnv.authenticatedContext(ADMIN_USER.uid, ADMIN_USER).firestore()
+      const db = testEnv.authenticatedContext(ADMIN_USER.uid, { email: ADMIN_USER.email, role: ADMIN_USER.role }).firestore()
       await firebase.assertSucceeds(
         db.collection("job-matches").add({
           userId: ADMIN_USER.uid,
@@ -414,12 +415,12 @@ describe("Firestore Security Rules", () => {
     })
 
     it("allows authenticated users to read companies", async () => {
-      const db = testEnv.authenticatedContext(VIEWER_USER.uid, VIEWER_USER).firestore()
+      const db = testEnv.authenticatedContext(VIEWER_USER.uid, { email: VIEWER_USER.email, role: VIEWER_USER.role }).firestore()
       await firebase.assertSucceeds(db.collection("companies").doc(companyId).get())
     })
 
     it("denies non-admins from writing to companies", async () => {
-      const db = testEnv.authenticatedContext(EDITOR_USER.uid, EDITOR_USER).firestore()
+      const db = testEnv.authenticatedContext(EDITOR_USER.uid, { email: EDITOR_USER.email, role: EDITOR_USER.role }).firestore()
       await firebase.assertFails(
         db.collection("companies").add({
           name: "New Corp",
@@ -428,7 +429,7 @@ describe("Firestore Security Rules", () => {
     })
 
     it("allows admins to write to companies", async () => {
-      const db = testEnv.authenticatedContext(ADMIN_USER.uid, ADMIN_USER).firestore()
+      const db = testEnv.authenticatedContext(ADMIN_USER.uid, { email: ADMIN_USER.email, role: ADMIN_USER.role }).firestore()
       await firebase.assertSucceeds(
         db.collection("companies").add({
           name: "New Corp",
