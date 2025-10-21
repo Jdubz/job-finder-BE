@@ -138,21 +138,6 @@ logs: ## View Firebase Functions logs
 	@npm run logs
 
 # ============================================================================
-# Emulator Helpers (for convenience)
-# ============================================================================
-
-emulators: ## Start Firebase emulators (delegates to FE)
-	@echo "$(YELLOW)Starting Firebase emulators from job-finder-FE...$(RESET)"
-	@cd ../job-finder-FE && make emulators
-
-emulators-stop: ## Stop Firebase emulators
-	@echo "$(CYAN)Stopping Firebase emulators...$(RESET)"
-	@lsof -ti:8080 | xargs kill -9 2>/dev/null || echo "$(YELLOW)No process on port 8080$(RESET)"
-	@lsof -ti:9099 | xargs kill -9 2>/dev/null || echo "$(YELLOW)No process on port 9099$(RESET)"
-	@lsof -ti:4000 | xargs kill -9 2>/dev/null || echo "$(YELLOW)No process on port 4000$(RESET)"
-	@echo "$(GREEN)✓ Emulators stopped$(RESET)"
-
-# ============================================================================
 # Health Checks
 # ============================================================================
 
