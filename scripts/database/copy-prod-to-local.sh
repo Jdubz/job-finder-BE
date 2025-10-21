@@ -36,16 +36,40 @@ echo "Local Backup Dir: ${LOCAL_BACKUP_DIR}"
 echo "Emulator Port: ${EMULATOR_PORT}"
 echo ""
 
-# Step 1: Check if emulators are running
+# Step 1: Check if emulators are running and stop them if needed
 echo "🔍 Checking if emulators are running..."
 if lsof -i:${EMULATOR_PORT} &>/dev/null; then
-  echo "  ❌ ERROR: Firestore emulator is running on port ${EMULATOR_PORT}"
-  echo "  Please stop the emulators before running this script:"
-  echo "    firebase emulators:stop"
-  echo "  Or use the dev-monitor to stop Firebase Emulators"
-  exit 1
+  echo "  ⚠️  Firestore emulator is running on port ${EMULATOR_PORT}"
+  echo "  The emulator needs to be stopped to clear and reimport data"
+  echo ""
+
+  # Find the main firebase emulator process
+  EMULATOR_PID=$(ps aux | grep 'firebase emulators:start' | grep -v grep | awk '{print $2}' | head -1)
+
+  if [ -n "${EMULATOR_PID}" ]; then
+    echo "  Stopping Firebase emulators (PID: ${EMULATOR_PID})..."
+    kill ${EMULATOR_PID}
+
+    # Wait for emulator to fully stop
+    sleep 3
+
+    # Verify it stopped
+    if lsof -i:${EMULATOR_PORT} &>/dev/null; then
+      echo "  ⚠️  Emulator didn't stop gracefully, force killing..."
+      pkill -9 -f 'firebase emulators:start'
+      pkill -9 -f 'cloud-firestore-emulator'
+      sleep 2
+    fi
+
+    echo "  ✓ Emulators stopped"
+  else
+    echo "  ⚠️  Port ${EMULATOR_PORT} is in use but couldn't find firebase process"
+    echo "  Please manually stop whatever is using port ${EMULATOR_PORT}"
+    exit 1
+  fi
+else
+  echo "  ✓ Emulators are already stopped"
 fi
-echo "  ✓ Emulators are stopped"
 
 # Step 2: Verify bucket exists or create it
 echo ""
