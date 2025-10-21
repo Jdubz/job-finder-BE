@@ -258,8 +258,11 @@ service cloud.firestore {
       // All authenticated users can read config
       allow read: if isAuthenticated();
 
-      // Only editors and admins can update config
-      allow write: if isEditor() || isAdmin();
+      // AI prompts can be edited by editors (they need to customize prompts)
+      allow write: if configId == 'ai-prompts' && isEditor();
+
+      // All other config documents require admin privileges
+      allow write: if isAdmin();
     }
 
     // ============================================================
