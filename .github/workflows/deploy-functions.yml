@@ -129,6 +129,7 @@ jobs:
         with:
           node-version: 20
           cache: "npm"
+          cache-dependency-path: "functions/package-lock.json"
 
       - name: Cache TypeScript build
         uses: actions/cache@v4
@@ -136,11 +137,12 @@ jobs:
           path: |
             functions/dist
             functions/node_modules/.cache
-          key: functions-build-${{ runner.os }}-${{ hashFiles('functions/src/**/*.ts', 'functions/tsconfig.json', 'package-lock.json') }}
+          key: functions-build-${{ runner.os }}-${{ hashFiles('functions/src/**/*.ts', 'functions/tsconfig.json', 'functions/package-lock.json') }}
           restore-keys: |
             functions-build-${{ runner.os }}-
 
       - name: Install dependencies
+        working-directory: functions
         run: npm ci
 
       - name: Run linting
@@ -150,6 +152,7 @@ jobs:
         run: npm test
 
       - name: Build TypeScript
+        working-directory: functions
         run: npm run build
 
       - name: Upload build artifacts
@@ -157,9 +160,10 @@ jobs:
         with:
           name: functions-build
           path: |
-            dist/
-            package.json
-            package-lock.json
+            functions/dist/
+            functions/package.json
+            functions/package-lock.json
+            functions/src/templates/
           retention-days: 1
 
   # Deploy to staging
@@ -298,9 +302,10 @@ jobs:
         if: steps.should-deploy.outputs.deploy == 'true'
         run: |
           mkdir -p deploy
-          cp -r functions-build/dist/* deploy/
-          jq 'del(.scripts.build) | del(.scripts["gcp-build"]) | del(.scripts.dev) | del(.devDependencies) | .main = "index.js"' functions-build/package.json > deploy/package.json
-          cp functions-build/package-lock.json deploy/ 2>/dev/null || true
+          cp -r functions-build/functions/dist/* deploy/
+          cp -r functions-build/functions/src/templates deploy/ 2>/dev/null || true
+          jq 'del(.scripts) | del(.devDependencies) | .main = "index.js"' functions-build/functions/package.json > deploy/package.json
+          cp functions-build/functions/package-lock.json deploy/ 2>/dev/null || true
           echo "✅ Deployment package created for ${{ matrix.function.name }}"
           ls -la deploy/
 
@@ -479,9 +484,10 @@ jobs:
         if: steps.should-deploy.outputs.deploy == 'true'
         run: |
           mkdir -p deploy
-          cp -r functions-build/dist/* deploy/
-          jq 'del(.scripts.build) | del(.scripts["gcp-build"]) | del(.scripts.dev) | del(.devDependencies) | .main = "index.js"' functions-build/package.json > deploy/package.json
-          cp functions-build/package-lock.json deploy/ 2>/dev/null || true
+          cp -r functions-build/functions/dist/* deploy/
+          cp -r functions-build/functions/src/templates deploy/ 2>/dev/null || true
+          jq 'del(.scripts) | del(.devDependencies) | .main = "index.js"' functions-build/functions/package.json > deploy/package.json
+          cp functions-build/functions/package-lock.json deploy/ 2>/dev/null || true
           echo "✅ Deployment package created for ${{ matrix.function.name }}"
           ls -la deploy/
 
