@@ -16,6 +16,7 @@ export const ALLOWED_ORIGINS = [
   "https://staging.joshwentworth.com",
   "http://localhost:8000",
   "http://localhost:3000",
+  "http://localhost:5173", // Vite dev server
 ]
 
 /**
