@@ -210,9 +210,10 @@ service cloud.firestore {
     // ============================================================
 
     match /job-matches/{matchId} {
-      // Users can read their own matches
+      // Users can read their own matches (submittedBy must match auth user)
       allow read: if isAnyRole() &&
-                     resource.data.userId == request.auth.uid;
+                     'submittedBy' in resource.data &&
+                     resource.data.submittedBy == request.auth.uid;
 
       // Backend functions can write (service account)
       // User-initiated writes not allowed from client
@@ -245,6 +246,22 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       // Only admins can manage sources
+      allow write: if isAdmin();
+    }
+
+    // ============================================================
+    // JOB FINDER CONFIG COLLECTION
+    // Application configuration (AI prompts, settings)
+    // ============================================================
+
+    match /job-finder-config/{configId} {
+      // All authenticated users can read config
+      allow read: if isAuthenticated();
+
+      // AI prompts can be edited by editors (they need to customize prompts)
+      allow write: if configId == 'ai-prompts' && isEditor();
+
+      // All other config documents require admin privileges
       allow write: if isAdmin();
     }
 
