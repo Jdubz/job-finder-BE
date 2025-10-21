@@ -76,7 +76,7 @@ lint-fix: ## Auto-fix linting issues
 # ============================================================================
 
 emulators: ## Start Firebase emulators (Firestore, Auth, Functions, Storage, UI)
-	@echo "$(CYAN)Starting Firebase emulators...$(RESET)"
+	@echo "$(CYAN)Starting Firebase emulators with data persistence...$(RESET)"
 	@echo "  Firestore:  http://localhost:8080"
 	@echo "  Auth:       http://localhost:9099"
 	@echo "  Functions:  http://localhost:5001"
@@ -84,8 +84,11 @@ emulators: ## Start Firebase emulators (Firestore, Auth, Functions, Storage, UI)
 	@echo "  UI:         http://localhost:4000"
 	@echo ""
 	@echo "$(YELLOW)Note: Hosting emulator disabled (Vite serves UI on port 5173)$(RESET)"
+	@echo "$(GREEN)Data persists in .firebase/emulator-data$(RESET)"
 	@echo ""
-	@firebase emulators:start --only auth,functions,firestore,storage,ui
+	@firebase emulators:start --only auth,functions,firestore,storage,ui \
+		--import=.firebase/emulator-data \
+		--export-on-exit=.firebase/emulator-data
 
 emulators-stop: ## Stop Firebase emulators
 	@echo "$(CYAN)Stopping Firebase emulators...$(RESET)"

@@ -41,6 +41,14 @@
       "enabled": true,
       "port": 4000
     },
-    "singleProjectMode": true
+    "singleProjectMode": true,
+    "hub": {
+      "port": 4400
+    }
+  },
+  "emulator": {
+    "export": {
+      "path": ".firebase/emulator-data"
+    }
   }
 }
