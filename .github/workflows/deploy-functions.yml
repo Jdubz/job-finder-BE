@@ -296,10 +296,10 @@ jobs:
         if: steps.should-deploy.outputs.deploy == 'true'
         run: |
           mkdir -p deploy
-          cp -r functions-build/functions/dist/* deploy/
-          cp -r functions-build/functions/src/templates deploy/ 2>/dev/null || true
-          jq 'del(.scripts) | del(.devDependencies) | .main = "index.js"' functions-build/functions/package.json > deploy/package.json
-          cp functions-build/functions/package-lock.json deploy/ 2>/dev/null || true
+          cp -r functions-build/dist/* deploy/
+          cp -r functions-build/src/templates deploy/ 2>/dev/null || true
+          jq 'del(.scripts) | del(.devDependencies) | .main = "index.js"' functions-build/package.json > deploy/package.json
+          cp functions-build/package-lock.json deploy/ 2>/dev/null || true
           echo "✅ Deployment package created for ${{ matrix.function.name }}"
           ls -la deploy/
 
@@ -478,10 +478,10 @@ jobs:
         if: steps.should-deploy.outputs.deploy == 'true'
         run: |
           mkdir -p deploy
-          cp -r functions-build/functions/dist/* deploy/
-          cp -r functions-build/functions/src/templates deploy/ 2>/dev/null || true
-          jq 'del(.scripts) | del(.devDependencies) | .main = "index.js"' functions-build/functions/package.json > deploy/package.json
-          cp functions-build/functions/package-lock.json deploy/ 2>/dev/null || true
+          cp -r functions-build/dist/* deploy/
+          cp -r functions-build/src/templates deploy/ 2>/dev/null || true
+          jq 'del(.scripts) | del(.devDependencies) | .main = "index.js"' functions-build/package.json > deploy/package.json
+          cp functions-build/package-lock.json deploy/ 2>/dev/null || true
           echo "✅ Deployment package created for ${{ matrix.function.name }}"
           ls -la deploy/
 
