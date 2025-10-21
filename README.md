@@ -133,16 +133,52 @@ npm run build
 
 ### Testing
 
-**Unit tests:**
+The backend includes comprehensive test coverage across unit, integration, and E2E tests. Tests use Jest with Firebase Functions Test utilities and Firebase emulators.
+
+**Run all tests:**
 ```bash
-cd functions
 npm test
 ```
 
-**Firestore security rules tests:**
+**Test with coverage report:**
 ```bash
-npm run test:firestore-rules
+npm run test:coverage
+
+# View coverage in browser
+open coverage/lcov-report/index.html
 ```
+
+**Watch mode (for development):**
+```bash
+npm run test:watch
+```
+
+**Run specific test types:**
+```bash
+# Unit tests only
+npm run test:unit
+
+# Integration tests (requires emulators)
+npm run test:integration
+
+# E2E tests
+npm run test:e2e
+
+# CI mode (used in GitHub Actions)
+npm run test:ci
+```
+
+**Test Structure:**
+- `functions/src/__tests__/services/` - Service layer unit tests
+- `functions/src/__tests__/integration/` - Integration tests with Firebase emulators
+- `functions/src/__tests__/e2e/` - End-to-end workflow tests
+- `functions/src/__tests__/helpers/` - Test utilities and mocks
+- `functions/src/__tests__/setup.ts` - Global test configuration
+
+**Coverage Thresholds:**
+- Current: ~7% overall (incrementally improving)
+- Target: >80% for services, >90% for critical business logic
+- Key services already covered: firestore.service (97%), job-queue.service (45%)
 
 **Integration tests** (requires emulators):
 ```bash
@@ -153,12 +189,7 @@ npm run emulators:start
 npm run test:integration
 ```
 
-**Watch mode:**
-```bash
-npm run test:watch
-```
-
-All tests automatically connect to emulators when available.
+All tests automatically detect and connect to Firebase emulators when available.
 
 ### Linting
 
