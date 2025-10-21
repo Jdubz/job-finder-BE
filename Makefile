@@ -75,7 +75,7 @@ lint-fix: ## Auto-fix linting issues
 # Backend-Specific Targets
 # ============================================================================
 
-emulators: ## Start ALL Firebase emulators (Firestore, Auth, Functions, Storage, UI)
+emulators: ## Start Firebase emulators (Firestore, Auth, Functions, Storage, UI)
 	@echo "$(CYAN)Starting Firebase emulators...$(RESET)"
 	@echo "  Firestore:  http://localhost:8080"
 	@echo "  Auth:       http://localhost:9099"
@@ -83,7 +83,9 @@ emulators: ## Start ALL Firebase emulators (Firestore, Auth, Functions, Storage,
 	@echo "  Storage:    http://localhost:9199"
 	@echo "  UI:         http://localhost:4000"
 	@echo ""
-	@firebase emulators:start
+	@echo "$(YELLOW)Note: Hosting emulator disabled (Vite serves UI on port 5173)$(RESET)"
+	@echo ""
+	@firebase emulators:start --only auth,functions,firestore,storage,ui
 
 emulators-stop: ## Stop Firebase emulators
 	@echo "$(CYAN)Stopping Firebase emulators...$(RESET)"
@@ -92,7 +94,7 @@ emulators-stop: ## Stop Firebase emulators
 	@lsof -ti:5001 | xargs kill -9 2>/dev/null || echo "$(YELLOW)No process on port 5001$(RESET)"
 	@lsof -ti:9199 | xargs kill -9 2>/dev/null || echo "$(YELLOW)No process on port 9199$(RESET)"
 	@lsof -ti:4000 | xargs kill -9 2>/dev/null || echo "$(YELLOW)No process on port 4000$(RESET)"
-	@echo "$(GREEN)✓ Emulators stopped$(RESET)"
+	@echo "$(GREEN)✓ Emulators stopped (Hosting emulator not used)$(RESET)"
 
 functions: ## Alias for emulators (for backward compatibility)
 	@echo "$(YELLOW)Note: 'functions' target now starts all Firebase emulators$(RESET)"
