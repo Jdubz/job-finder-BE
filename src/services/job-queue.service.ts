@@ -24,7 +24,6 @@ export class JobQueueService {
   private logger: SimpleLogger;
   private readonly queueCollection = "job-queue";
   private readonly configCollection = "job-finder-config";
-  private readonly matchesCollection = "job-matches";
 
   constructor(logger?: SimpleLogger) {
     this.db = createFirestoreInstance();
@@ -264,12 +263,6 @@ export class JobQueueService {
         failed: 0,
         skipped: 0,
         filtered: 0,
-        // TODO: Add byType to QueueStats in shared-types package
-        // byType: {
-        //   job: 0,
-        //   company: 0,
-        //   scrape: 0,
-        // },
       };
 
       snapshot.forEach((doc) => {
@@ -282,12 +275,6 @@ export class JobQueueService {
         else if (item.status === "failed") stats.failed++;
         else if (item.status === "skipped") stats.skipped++;
         else if (item.status === "filtered") stats.filtered++;
-
-        // TODO: Re-enable when byType is added to QueueStats
-        // // Count by type
-        // if (item.type === "job") stats.byType.job++;
-        // else if (item.type === "company") stats.byType.company++;
-        // else if (item.type === "scrape") stats.byType.scrape++;
       });
 
       return stats;
@@ -489,7 +476,6 @@ export class JobQueueService {
       const stopList = await this.getStopList();
       const result: StopListCheckResult = {
         allowed: true,
-        reason: undefined,
       };
 
       // Extract domain from URL
@@ -531,7 +517,6 @@ export class JobQueueService {
       // Return allowed on error (fail open)
       return {
         allowed: true,
-        reason: undefined,
       };
     }
   }

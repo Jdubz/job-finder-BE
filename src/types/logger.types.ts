@@ -10,3 +10,6 @@ export type SimpleLogger = {
   warning: (message: string, data?: unknown) => void
   error: (message: string, data?: unknown) => void
 }
+
+// Alias for backward compatibility
+export type Logger = SimpleLogger
