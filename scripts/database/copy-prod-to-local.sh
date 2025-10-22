@@ -13,10 +13,36 @@
 #   - curl or firebase CLI for emulator import
 #
 # Usage:
-#   bash scripts/database/copy-prod-to-local.sh
+#   bash scripts/database/copy-prod-to-local.sh [-y|--yes]
+#
+# Options:
+#   -y, --yes    Auto-confirm all prompts (useful for non-interactive execution)
+#
+# Note:
+#   The script automatically detects non-interactive execution (e.g., from
+#   dev-monitor) and will auto-confirm prompts without requiring the -y flag.
 ###############################################################################
 
 set -e  # Exit on error
+
+# Detect non-interactive execution (when run via dev-monitor or CI)
+if [ -t 0 ]; then
+  INTERACTIVE=true
+else
+  INTERACTIVE=false
+  echo "ℹ️  Running in non-interactive mode - auto-confirming all prompts"
+fi
+
+# Parse arguments
+AUTO_CONFIRM=false
+for arg in "$@"; do
+  case $arg in
+    -y|--yes)
+      AUTO_CONFIRM=true
+      shift
+      ;;
+  esac
+done
 
 # Configuration
 PROD_PROJECT_ID="${PROD_PROJECT_ID:-static-sites-257923}"
@@ -128,12 +154,16 @@ echo "  Backup size: $(du -sh ${LOCAL_BACKUP_DIR} | cut -f1)"
 # Step 5: Clear existing emulator data
 echo ""
 echo "🗑️  Clearing existing emulator data..."
-read -p "  This will delete all current emulator data. Continue? (yes/no): " -r CONFIRM
 
-if [ "${CONFIRM}" != "yes" ]; then
-  echo "  ❌ Import cancelled by user"
-  echo "  Downloaded backup retained at: ${LOCAL_BACKUP_DIR}"
-  exit 1
+if [ "$INTERACTIVE" = true ] && [ "$AUTO_CONFIRM" = false ]; then
+  read -p "  This will delete all current emulator data. Continue? (yes/no): " -r CONFIRM
+  if [ "${CONFIRM}" != "yes" ]; then
+    echo "  ❌ Import cancelled by user"
+    echo "  Downloaded backup retained at: ${LOCAL_BACKUP_DIR}"
+    exit 1
+  fi
+else
+  echo "  ✓ Auto-confirming data clear (non-interactive mode)"
 fi
 
 # Clear firestore emulator data
@@ -201,7 +231,13 @@ echo ""
 echo "🧹 Cleanup Options"
 echo "  Cloud backup: ${BACKUP_PATH}"
 echo "  Local backup: ${LOCAL_BACKUP_DIR}"
-read -p "  Delete cloud backup to save storage costs? (yes/no): " -r DELETE_CLOUD
+
+if [ "$INTERACTIVE" = true ] && [ "$AUTO_CONFIRM" = false ]; then
+  read -p "  Delete cloud backup to save storage costs? (yes/no): " -r DELETE_CLOUD
+else
+  DELETE_CLOUD="yes"
+  echo "  ✓ Auto-confirming cloud backup deletion (non-interactive mode)"
+fi
 
 if [ "${DELETE_CLOUD}" = "yes" ]; then
   echo "  Deleting cloud backup..."
@@ -212,7 +248,12 @@ else
   echo "     gsutil -m rm -r ${BACKUP_PATH}"
 fi
 
-read -p "  Delete local backup to save disk space? (yes/no): " -r DELETE_LOCAL
+if [ "$INTERACTIVE" = true ] && [ "$AUTO_CONFIRM" = false ]; then
+  read -p "  Delete local backup to save disk space? (yes/no): " -r DELETE_LOCAL
+else
+  DELETE_LOCAL="no"
+  echo "  ℹ️  Retaining local backup for inspection (non-interactive mode)"
+fi
 
 if [ "${DELETE_LOCAL}" = "yes" ]; then
   echo "  Deleting local backup..."

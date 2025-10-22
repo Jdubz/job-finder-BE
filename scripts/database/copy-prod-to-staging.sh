@@ -11,10 +11,36 @@
 #   - gsutil for managing Cloud Storage
 #
 # Usage:
-#   bash scripts/database/copy-prod-to-staging.sh
+#   bash scripts/database/copy-prod-to-staging.sh [-y|--yes]
+#
+# Options:
+#   -y, --yes    Auto-confirm all prompts (useful for non-interactive execution)
+#
+# Note:
+#   The script automatically detects non-interactive execution (e.g., from
+#   dev-monitor) and will auto-confirm prompts without requiring the -y flag.
 ###############################################################################
 
 set -e  # Exit on error
+
+# Detect non-interactive execution (when run via dev-monitor or CI)
+if [ -t 0 ]; then
+  INTERACTIVE=true
+else
+  INTERACTIVE=false
+  echo "ℹ️  Running in non-interactive mode - auto-confirming all prompts"
+fi
+
+# Parse arguments
+AUTO_CONFIRM=false
+for arg in "$@"; do
+  case $arg in
+    -y|--yes)
+      AUTO_CONFIRM=true
+      shift
+      ;;
+  esac
+done
 
 # Configuration
 PROD_PROJECT_ID="${PROD_PROJECT_ID:-static-sites-257923}"
@@ -62,6 +88,7 @@ sleep 5  # Give it a moment to start
 while true; do
   EXPORT_STATE=$(gcloud firestore operations list \
     --project="${PROD_PROJECT_ID}" \
+    --database="${PROD_DATABASE}" \
     --filter="RUNNING" \
     --format="value(name)" \
     --limit=1)
@@ -82,11 +109,15 @@ echo "  Database: ${STAGING_DATABASE}"
 echo "  Source: ${BACKUP_PATH}"
 
 echo "  ⚠️  WARNING: This will OVERWRITE all data in staging database: ${STAGING_DATABASE}"
-read -p "  Continue? (yes/no): " -r CONFIRM
 
-if [ "${CONFIRM}" != "yes" ]; then
-  echo "  ❌ Import cancelled by user"
-  exit 1
+if [ "$INTERACTIVE" = true ] && [ "$AUTO_CONFIRM" = false ]; then
+  read -p "  Continue? (yes/no): " -r CONFIRM
+  if [ "${CONFIRM}" != "yes" ]; then
+    echo "  ❌ Import cancelled by user"
+    exit 1
+  fi
+else
+  echo "  ✓ Auto-confirming import (non-interactive mode)"
 fi
 
 gcloud firestore import "${BACKUP_PATH}" \
@@ -101,6 +132,7 @@ sleep 5
 while true; do
   IMPORT_STATE=$(gcloud firestore operations list \
     --project="${STAGING_PROJECT_ID}" \
+    --database="${STAGING_DATABASE}" \
     --filter="RUNNING" \
     --format="value(name)" \
     --limit=1)
@@ -118,7 +150,13 @@ done
 echo ""
 echo "🧹 Cleanup Options"
 echo "  Backup stored at: ${BACKUP_PATH}"
-read -p "  Delete backup to save storage costs? (yes/no): " -r DELETE_BACKUP
+
+if [ "$INTERACTIVE" = true ] && [ "$AUTO_CONFIRM" = false ]; then
+  read -p "  Delete backup to save storage costs? (yes/no): " -r DELETE_BACKUP
+else
+  DELETE_BACKUP="yes"
+  echo "  ✓ Auto-confirming backup deletion (non-interactive mode)"
+fi
 
 if [ "${DELETE_BACKUP}" = "yes" ]; then
   echo "  Deleting backup..."

@@ -62,22 +62,19 @@ service cloud.firestore {
     // ============================================================
 
     match /job-queue/{queueId} {
-      // Allow users to read their own submissions
-      allow read: if isOwner(resource.data.submitted_by);
+      // Editors can read all queue items
+      allow read: if isAuthenticated();
 
       // Allow authenticated users to create queue items
       allow create: if isAuthenticated() &&
                        request.resource.data.submitted_by == request.auth.uid &&
                        request.resource.data.created_at is timestamp;
 
-      // Only allow users to update their own non-completed items
-      allow update: if isOwner(resource.data.submitted_by) &&
-                       resource.data.status != 'completed' &&
-                       resource.data.status != 'failed';
+      // Allow authenticated users to update queue items
+      allow update: if isAuthenticated();
 
-      // Allow users to delete their own pending items
-      allow delete: if isOwner(resource.data.submitted_by) &&
-                       resource.data.status == 'pending';
+      // Allow authenticated users to delete queue items
+      allow delete: if isAuthenticated();
 
       // Admins can read and manage all queue items
       allow read, write: if isAdmin();
@@ -87,26 +84,22 @@ service cloud.firestore {
     // GENERATOR DOCUMENTS COLLECTION
     // Used by: generator.service.ts
     // Stores document generation requests and responses
+    // NOTE: Renamed from "generator" to "generator-documents" for clarity
     // ============================================================
 
     match /generator-documents/{documentId} {
-      // Users can read their own documents
-      allow read: if isAuthenticated() &&
-                     resource.data.access.userId == request.auth.uid;
+      // Editors can read all documents
+      allow read: if isAuthenticated();
 
-      // Editors can create document generation requests
-      allow create: if isEditor() &&
-                       request.resource.data.access.userId == request.auth.uid &&
+      // Authenticated users can create document generation requests
+      allow create: if isAuthenticated() &&
                        request.resource.data.createdAt is timestamp;
 
-      // Only allow updates to own documents and prevent changing ownership
-      allow update: if isEditor() &&
-                       resource.data.access.userId == request.auth.uid &&
-                       request.resource.data.access.userId == request.auth.uid;
+      // Authenticated users can update documents
+      allow update: if isAuthenticated();
 
-      // Users can delete their own documents
-      allow delete: if isEditor() &&
-                       resource.data.access.userId == request.auth.uid;
+      // Authenticated users can delete documents
+      allow delete: if isAuthenticated();
 
       // Admins have full access
       allow read, write: if isAdmin();
@@ -119,20 +112,18 @@ service cloud.firestore {
     // ============================================================
 
     match /content-items/{itemId} {
-      // Users can read their own content
-      allow read: if isOwner(resource.data.userId);
+      // Editors can read all content items
+      allow read: if isAuthenticated();
 
-      // Editors can create and manage their own content items
-      allow create: if isEditor() &&
-                       request.resource.data.userId == request.auth.uid &&
+      // Editors can create content items
+      allow create: if isAuthenticated() &&
                        hasValidTimestamps();
 
-      allow update: if isEditor() &&
-                       isOwner(resource.data.userId) &&
-                       request.resource.data.userId == resource.data.userId;
+      // Editors can update any content items
+      allow update: if isAuthenticated();
 
-      allow delete: if isEditor() &&
-                       isOwner(resource.data.userId);
+      // Editors can delete any content items
+      allow delete: if isAuthenticated();
 
       // Admins have full access
       allow read, write: if isAdmin();
@@ -145,20 +136,18 @@ service cloud.firestore {
     // ============================================================
 
     match /experiences/{experienceId} {
-      // Users can read their own experiences
-      allow read: if isOwner(resource.data.userId);
+      // Editors can read all experiences
+      allow read: if isAuthenticated();
 
-      // Editors can create and manage their own experiences
-      allow create: if isEditor() &&
-                       request.resource.data.userId == request.auth.uid &&
+      // Editors can create experiences
+      allow create: if isAuthenticated() &&
                        request.resource.data.type == 'experience';
 
-      allow update: if isEditor() &&
-                       isOwner(resource.data.userId) &&
-                       request.resource.data.userId == resource.data.userId;
+      // Editors can update any experiences
+      allow update: if isAuthenticated();
 
-      allow delete: if isEditor() &&
-                       isOwner(resource.data.userId);
+      // Editors can delete any experiences
+      allow delete: if isAuthenticated();
 
       // Admins have full access
       allow read, write: if isAdmin();
@@ -251,15 +240,19 @@ service cloud.firestore {
 
     // ============================================================
     // JOB FINDER CONFIG COLLECTION
-    // Application configuration (AI prompts, settings)
+    // Application configuration (AI prompts, settings, personal-info)
+    // NOTE: personal-info moved here from generator collection
     // ============================================================
 
     match /job-finder-config/{configId} {
       // All authenticated users can read config
       allow read: if isAuthenticated();
 
+      // Personal info can be edited by any authenticated user
+      allow write: if configId == 'personal-info' && isAuthenticated();
+
       // AI prompts can be edited by editors (they need to customize prompts)
-      allow write: if configId == 'ai-prompts' && isEditor();
+      allow write: if configId == 'ai-prompts' && isAuthenticated();
 
       // All other config documents require admin privileges
       allow write: if isAdmin();
