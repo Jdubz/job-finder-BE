@@ -17,7 +17,7 @@ export interface ExperienceEntry {
   endDate?: string | null // YYYY-MM format or null (= Present)
   notes?: string
   order?: number // For sorting (lower = earlier), optional for backward compatibility
-  relatedBlurbIds?: string[] // References to associated blurbs, optional for backward compatibility
+  relatedBlurbIds?: string[] // References to associated blurbs/text-sections (portfolio migration compatibility)
 
   // NEW: Structured fields
   renderType?: "structured-entry" | "simple-entry" | "text"
