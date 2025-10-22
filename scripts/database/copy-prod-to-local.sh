@@ -100,6 +100,7 @@ sleep 5  # Give it a moment to start
 while true; do
   EXPORT_STATE=$(gcloud firestore operations list \
     --project="${PROD_PROJECT_ID}" \
+    --database="${PROD_DATABASE}" \
     --filter="RUNNING" \
     --format="value(name)" \
     --limit=1)
