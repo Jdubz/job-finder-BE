@@ -26,8 +26,7 @@ import busboy from "busboy"
 import type { Readable } from "stream"
 import { Firestore } from "@google-cloud/firestore"
 import { GeneratorService } from "./services/generator.service"
-import { ExperienceService } from "./services/experience.service"
-import { BlurbService } from "./services/blurb.service"
+import { ContentItemService } from "./services/content-item.service"
 import { createAIProvider } from "./services/ai-provider.factory"
 import { PDFService } from "./services/pdf.service"
 import { StorageService } from "./services/storage.service"
@@ -48,8 +47,7 @@ import { DATABASE_ID } from "./config/database"
 
 // Initialize services
 const generatorService = new GeneratorService(logger)
-const experienceService = new ExperienceService(logger)
-const blurbService = new BlurbService(logger)
+const contentItemService = new ContentItemService(logger)
 const pdfService = new PDFService(logger)
 const storageService = new StorageService(undefined, logger) // Use environment-aware bucket selection
 
@@ -390,16 +388,14 @@ async function handleGenerate(req: Request, res: Response, requestId: string): P
       throw new Error("Personal info not found. Please seed the personal-info document.")
     }
 
-    // Step 2: Fetch experience data and job match data if provided
-    const [entries, blurbs, jobMatchData] = await Promise.all([
-      experienceService.listEntries(),
-      blurbService.listBlurbs(),
+    // Step 2: Fetch content items and job match data if provided
+    const [contentItems, jobMatchData] = await Promise.all([
+      contentItemService.listItems({ visibility: "published" }),
       jobMatchId ? fetchJobMatchData(jobMatchId) : Promise.resolve(undefined),
     ])
 
-    logger.info("Fetched experience data", {
-      entriesCount: entries.length,
-      blurbsCount: blurbs.length,
+    logger.info("Fetched content data", {
+      contentItemsCount: contentItems.length,
       hasJobMatchData: !!jobMatchData,
     })
 
@@ -409,8 +405,7 @@ async function handleGenerate(req: Request, res: Response, requestId: string): P
       job,
       personalInfo,
       {
-        entries,
-        blurbs,
+        contentItems, // Pass all content items instead of separate entries/blurbs
       },
       preferences,
       requestId, // Use HTTP request ID as viewer session ID for now
@@ -477,8 +472,7 @@ async function handleGenerate(req: Request, res: Response, requestId: string): P
             companyWebsite: job.companyWebsite,
             jobDescription,
           },
-          experienceEntries: entries,
-          experienceBlurbs: blurbs,
+          contentItems,
           emphasize: preferences?.emphasize,
           jobMatchData, // Include job match insights for prompt customization
           customPrompts: personalInfo.aiPrompts?.resume,
@@ -525,8 +519,7 @@ async function handleGenerate(req: Request, res: Response, requestId: string): P
             companyWebsite: job.companyWebsite,
             jobDescription,
           },
-          experienceEntries: entries,
-          experienceBlurbs: blurbs,
+          contentItems,
           jobMatchData, // Include job match insights for prompt customization
           customPrompts: personalInfo.aiPrompts?.coverLetter,
         })
@@ -805,12 +798,11 @@ async function handleStartGeneration(req: Request, res: Response, requestId: str
       throw new Error("Personal info not found. Please seed the personal-info document.")
     }
 
-    // Fetch experience data
-    const [entries, blurbs] = await Promise.all([experienceService.listEntries(), blurbService.listBlurbs()])
+    // Fetch content items
+    const contentItems = await contentItemService.listItems({ visibility: "published" })
 
-    logger.info("Fetched experience data", {
-      entriesCount: entries.length,
-      blurbsCount: blurbs.length,
+    logger.info("Fetched content data", {
+      contentItemsCount: contentItems.length,
     })
 
     // Create request document with initial steps
@@ -819,8 +811,7 @@ async function handleStartGeneration(req: Request, res: Response, requestId: str
       job,
       personalInfo,
       {
-        entries,
-        blurbs,
+        contentItems,
       },
       preferences,
       requestId, // Use HTTP request ID as viewer session ID
@@ -1132,8 +1123,7 @@ async function executeGenerateResume(request: GeneratorRequest, requestId: strin
       companyWebsite: request.job.companyWebsite,
       jobDescription,
     },
-    experienceEntries: request.experienceData.entries,
-    experienceBlurbs: request.experienceData.blurbs,
+    contentItems: request.contentData.items,
     emphasize: request.preferences?.emphasize,
     jobMatchData, // Include job match insights for prompt customization
     customPrompts: personalInfo.aiPrompts?.resume,
@@ -1197,8 +1187,7 @@ async function executeGenerateCoverLetter(request: GeneratorRequest, requestId: 
       companyWebsite: request.job.companyWebsite,
       jobDescription,
     },
-    experienceEntries: request.experienceData.entries,
-    experienceBlurbs: request.experienceData.blurbs,
+    contentItems: request.contentData.items,
     jobMatchData, // Include job match insights for prompt customization
     customPrompts: personalInfo.aiPrompts?.coverLetter,
   })

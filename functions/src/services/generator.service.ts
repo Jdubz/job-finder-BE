@@ -12,8 +12,7 @@ import type {
   AIProviderType,
   GenerationStep,
 } from "../types/generator.types"
-import type { ExperienceEntry } from "./experience.service"
-import type { BlurbEntry } from "./blurb.service"
+import type { ContentItem } from "../types/content-item.types"
 
 const COLLECTION_NAME = GENERATOR_COLLECTION
 const PERSONAL_INFO_COLLECTION = "job-finder-config"
@@ -135,9 +134,8 @@ export class GeneratorService {
       jobDescriptionText?: string
     },
     personalInfo: PersonalInfo,
-    experienceData: {
-      entries: ExperienceEntry[]
-      blurbs: BlurbEntry[]
+    contentData: {
+      contentItems: ContentItem[]
     },
     preferences?: {
       style?: string
@@ -173,7 +171,7 @@ export class GeneratorService {
         job,
         ...(jobMatchId ? { jobMatchId } : {}), // Only include jobMatchId if provided (Firestore doesn't allow undefined)
         ...(preferences ? { preferences } : {}), // Only include preferences if provided (Firestore doesn't allow undefined)
-        experienceData,
+        contentData: { items: contentData.contentItems },
         status: "pending",
         access: {
           viewerSessionId,
