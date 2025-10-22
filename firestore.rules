@@ -199,6 +199,9 @@ service cloud.firestore {
     // ============================================================
 
     match /job-matches/{matchId} {
+      // Editors can read all matches (for review and management)
+      allow read: if isEditor();
+
       // Users can read their own matches (submittedBy must match auth user)
       allow read: if isAnyRole() &&
                      'submittedBy' in resource.data &&
