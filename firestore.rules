@@ -62,12 +62,11 @@ service cloud.firestore {
     // ============================================================
 
     match /job-queue/{queueId} {
-      // Editors can read all queue items
+      // All authenticated users can read all queue items
       allow read: if isAuthenticated();
 
-      // Allow authenticated users to create queue items
+      // Allow authenticated users to create queue items (no submittedBy restriction)
       allow create: if isAuthenticated() &&
-                       request.resource.data.submitted_by == request.auth.uid &&
                        request.resource.data.created_at is timestamp;
 
       // Allow authenticated users to update queue items
@@ -199,13 +198,8 @@ service cloud.firestore {
     // ============================================================
 
     match /job-matches/{matchId} {
-      // Editors can read all matches (for review and management)
-      allow read: if isEditor();
-
-      // Users can read their own matches (submittedBy must match auth user)
-      allow read: if isAnyRole() &&
-                     'submittedBy' in resource.data &&
-                     resource.data.submittedBy == request.auth.uid;
+      // All authenticated users can read all matches (no submittedBy restriction)
+      allow read: if isAuthenticated();
 
       // Backend functions can write (service account)
       // User-initiated writes not allowed from client
