@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
+/* eslint-env node */
+
 /**
  * Safe Test Runner - job-finder-BE
- * 
+ *
  * Prevents test explosions through process locking and resource control.
  * This is the ONLY way to run tests in this repository.
  */
@@ -121,7 +123,7 @@ class SafeTestRunner {
       } else {
         require('child_process').execSync('pkill -9 -f vitest', { stdio: 'inherit' })
       }
-    } catch (error) {
+    } catch {
       console.log(chalk.yellow('No test processes to terminate'))
     }
   }

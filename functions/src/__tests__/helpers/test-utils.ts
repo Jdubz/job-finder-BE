@@ -19,7 +19,7 @@ export function createMockLogger(): jest.Mocked<Logger> {
 /**
  * Create a mock Firestore document reference
  */
-export function createMockDocRef(id: string, data?: any) {
+export function createMockDocRef(id: string, data?: Record<string, unknown>) {
   return {
     id,
     get: jest.fn().mockResolvedValue({
@@ -63,7 +63,7 @@ export function createMockFirestore() {
 /**
  * Factory: Create test job queue item
  */
-export function createTestQueueItem(overrides?: any) {
+export function createTestQueueItem(overrides?: Record<string, unknown>) {
   return {
     id: "test-queue-id",
     type: "job",
@@ -80,7 +80,7 @@ export function createTestQueueItem(overrides?: any) {
 /**
  * Factory: Create test generation request
  */
-export function createTestGenerationRequest(overrides?: any) {
+export function createTestGenerationRequest(overrides?: Record<string, unknown>) {
   return {
     id: "test-request-id",
     status: "pending",
@@ -105,7 +105,7 @@ export function createTestGenerationRequest(overrides?: any) {
 /**
  * Factory: Create test content item
  */
-export function createTestContentItem(overrides?: any) {
+export function createTestContentItem(overrides?: Record<string, unknown>) {
   return {
     id: "test-content-id",
     type: "company",
@@ -123,7 +123,7 @@ export function createTestContentItem(overrides?: any) {
 /**
  * Factory: Create test authenticated request
  */
-export function createMockAuthRequest(user?: any) {
+export function createMockAuthRequest(user?: Record<string, unknown>) {
   return {
     method: "POST",
     path: "/test",
@@ -142,7 +142,7 @@ export function createMockAuthRequest(user?: any) {
  * Factory: Create test response object
  */
 export function createMockResponse() {
-  const res: any = {
+  const res = {
     status: jest.fn().mockReturnThis(),
     json: jest.fn().mockReturnThis(),
     send: jest.fn().mockReturnThis(),
@@ -168,14 +168,20 @@ export function suppressConsole() {
   }
 
   beforeEach(() => {
+    // eslint-disable-next-line no-console
     console.log = jest.fn()
+    // eslint-disable-next-line no-console
     console.error = jest.fn()
+    // eslint-disable-next-line no-console
     console.warn = jest.fn()
   })
 
   afterEach(() => {
+    // eslint-disable-next-line no-console
     console.log = originalConsole.log
+    // eslint-disable-next-line no-console
     console.error = originalConsole.error
+    // eslint-disable-next-line no-console
     console.warn = originalConsole.warn
   })
 }
