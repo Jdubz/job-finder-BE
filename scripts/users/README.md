@@ -86,7 +86,7 @@ npm run script:remove-editor -- abc123 production
 
 - **local** - Firebase emulator (localhost:8080)
   - Project: demo-project
-  - Database: (default)
+  - Database: portfolio
   - No confirmation required
 
 - **staging** - Staging environment
@@ -96,7 +96,7 @@ npm run script:remove-editor -- abc123 production
 
 - **production** - Production environment
   - Project: static-sites-257923
-  - Database: (default)
+  - Database: portfolio
   - Requires confirmation with extra warning
 
 ## Safety Features

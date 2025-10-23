@@ -72,6 +72,7 @@ export const EXPERIENCE_COLLECTION = "experience"
 
 /**
  * Generator document collection name
+ * NOTE: In portfolio app this was "generator", now using "generator-documents"
  */
 export const GENERATOR_COLLECTION = "generator-documents"
 

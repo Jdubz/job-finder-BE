@@ -1,9 +1,9 @@
 # BE-SEC-1 — Firestore Rules & Indexes Audit
 
-- **Status**: Todo
+- **Status**: ✅ COMPLETED 2025-10-20
 - **Owner**: Worker A
 - **Priority**: P1 (High Impact)
-- **Labels**: priority-p1, repository-backend, type-security, status-todo
+- **Labels**: priority-p1, repository-backend, type-security, status-completed
 
 ## What This Issue Covers
 Audit and update Firestore security rules and index definitions stored in this repo so they match the migrated data model. Deploy changes to staging, verify via emulator tests, and document everything so contributors can repeat the process without leaving `job-finder-BE`.

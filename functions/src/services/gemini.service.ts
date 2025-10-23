@@ -290,23 +290,30 @@ You must respond with valid JSON matching this schema:
    * EXACT same prompt as OpenAI for consistency
    */
   private buildResumeUserPrompt(options: GenerateResumeOptions): string {
-    // Create blurb map for O(1) lookup instead of O(n) find
-    const blurbMap = new Map(options.experienceBlurbs.map((b) => [b.name, b]))
+    // Group content items by type
+    const companies = options.contentItems.filter((item) => item.type === "company")
+    const projects = options.contentItems.filter((item) => item.type === "project")
+    const skills = options.contentItems.filter((item) => item.type === "skill-group")
+    const education = options.contentItems.filter((item) => item.type === "education")
 
-    // Format experience data with explicit boundaries
-    const experienceData = options.experienceEntries
-      .map((entry, index) => {
-        const blurb = blurbMap.get(entry.id)
+    // Format company experience (employment history)
+    const experienceData = companies
+      .map((item, index) => {
+        const company = item as import("../types/content-item.types").CompanyItem
+        const accomplishments = company.accomplishments?.join("\n• ") || "NO ACCOMPLISHMENTS PROVIDED"
+        const technologies = company.technologies?.join(", ") || ""
+
         return `
 EXPERIENCE ENTRY #${index + 1} (USE ONLY THIS DATA - DO NOT ADD ANYTHING):
-Company/Title: ${entry.title}
-${entry.role ? `Role: ${entry.role}` : "NO ROLE PROVIDED"}
-${entry.location ? `Location: ${entry.location}` : "NO LOCATION PROVIDED"}
-Start Date: ${entry.startDate}
-End Date: ${entry.endDate || "Present"}
-${entry.body ? `Description: ${entry.body}` : "NO DESCRIPTION PROVIDED"}
-${blurb ? `Accomplishments:\n${blurb.content}` : "NO ACCOMPLISHMENTS PROVIDED"}
-${entry.notes ? `Additional Context: ${entry.notes}` : "NO ADDITIONAL CONTEXT PROVIDED"}
+Company: ${company.company}
+${company.role ? `Role: ${company.role}` : "NO ROLE PROVIDED"}
+${company.location ? `Location: ${company.location}` : "NO LOCATION PROVIDED"}
+Start Date: ${company.startDate}
+End Date: ${company.endDate || "Present"}
+${company.summary ? `Summary: ${company.summary}` : "NO SUMMARY PROVIDED"}
+${technologies ? `Technologies: ${technologies}` : ""}
+Accomplishments:
+• ${accomplishments}
 
 END OF ENTRY #${index + 1} - USE NOTHING BEYOND THIS POINT FOR THIS ENTRY
 `.trim()
@@ -368,6 +375,19 @@ ${options.job.jobDescription ? `\n- Job Description (for relevance ranking ONLY,
 
 EXPERIENCE DATA (YOUR ONLY SOURCE OF TRUTH):
 ${experienceData}
+
+${projects.length > 0 ? `\nPROJECTS:\n${projects.map((item, i) => {
+  const project = item as import("../types/content-item.types").ProjectItem
+  return `PROJECT #${i + 1}: ${project.name}\n${project.description || ""}\n${project.technologies ? `Tech: ${project.technologies.join(", ")}` : ""}`
+}).join("\n\n")}\n` : ""}
+${skills.length > 0 ? `\nSKILLS:\n${skills.map((item) => {
+  const skillGroup = item as import("../types/content-item.types").SkillGroupItem
+  return `${skillGroup.category}: ${skillGroup.skills?.join(", ") || ""}`
+}).join("\n")}\n` : ""}
+${education.length > 0 ? `\nEDUCATION:\n${education.map((item) => {
+  const edu = item as import("../types/content-item.types").EducationItem
+  return `${edu.degree} - ${edu.institution}${edu.endDate ? ` (${edu.endDate})` : ""}`
+}).join("\n")}\n` : ""}
 
 END OF ALL PROVIDED DATA - NO OTHER INFORMATION EXISTS
 
@@ -460,15 +480,16 @@ You must respond with valid JSON matching this schema:
    * Build user prompt for cover letter generation
    */
   private buildCoverLetterUserPrompt(options: GenerateCoverLetterOptions): string {
-    // Create blurb map for O(1) lookup instead of O(n) find
-    const blurbMap = new Map(options.experienceBlurbs.map((b) => [b.name, b]))
+    // Group content items by type
+    const companies = options.contentItems.filter((item) => item.type === "company")
 
     // Format experience data (simplified for cover letter)
-    const experienceData = options.experienceEntries
-      .map((entry) => {
-        const blurb = blurbMap.get(entry.id)
-        return `${entry.title}${entry.role ? ` - ${entry.role}` : ""} (${entry.startDate} - ${entry.endDate || "Present"})
-${blurb ? blurb.content : entry.body || ""}`
+    const experienceData = companies
+      .map((item) => {
+        const company = item as import("../types/content-item.types").CompanyItem
+        const accomplishments = company.accomplishments?.slice(0, 2).join("\n") || company.summary || ""
+        return `${company.company}${company.role ? ` - ${company.role}` : ""} (${company.startDate} - ${company.endDate || "Present"})
+${accomplishments}`
       })
       .join("\n\n")
 
@@ -548,19 +569,25 @@ Generate a compelling cover letter that showcases the candidate's qualifications
         },
       },
       professionalSummary: `Highly skilled ${options.job.role} with extensive experience in software development and technical leadership.`,
-      experience: options.experienceEntries.slice(0, 3).map((entry) => ({
-        company: entry.title,
-        role: entry.role || options.job.role,
-        location: entry.location || "Remote",
-        startDate: entry.startDate,
-        endDate: entry.endDate || null,
-        highlights: [
-          "Led development of core features",
-          "Architected scalable microservices",
-          "Mentored junior engineers",
-        ],
-        technologies: ["TypeScript", "React", "Node.js"],
-      })),
+      experience: options.contentItems
+        .filter((item) => item.type === "company")
+        .slice(0, 3)
+        .map((item) => {
+          const company = item as import("../types/content-item.types").CompanyItem
+          return {
+            company: company.company,
+            role: company.role || options.job.role,
+            location: company.location || "Remote",
+            startDate: company.startDate,
+            endDate: company.endDate || null,
+            highlights: company.accomplishments?.slice(0, 4) || [
+              "Led development of core features",
+              "Architected scalable microservices",
+              "Mentored junior engineers",
+            ],
+            technologies: company.technologies || ["TypeScript", "React", "Node.js"],
+          }
+        }),
       skills: [
         { category: "Languages", items: ["TypeScript", "JavaScript", "Python"] },
         { category: "Frontend", items: ["React", "Vue.js", "Next.js"] },
@@ -632,23 +659,24 @@ Generate a compelling cover letter that showcases the candidate's qualifications
       return this.buildResumeUserPrompt(options)
     }
 
-    // Create blurb map for O(1) lookup instead of O(n) find
-    const blurbMap = new Map(options.experienceBlurbs.map((b) => [b.name, b]))
+    // Filter content items by type
+    const companies = options.contentItems.filter((item) => item.type === "company")
 
     // Format experience data
-    const experienceData = options.experienceEntries
-      .map((entry, index) => {
-        const blurb = blurbMap.get(entry.id)
+    const experienceData = companies
+      .map((item, index) => {
+        const company = item as import("../types/content-item.types").CompanyItem
+        const accomplishments = company.accomplishments?.join("\n") || company.summary || ""
         return `
 EXPERIENCE ENTRY #${index + 1} (USE ONLY THIS DATA - DO NOT ADD ANYTHING):
-Company/Title: ${entry.title}
-${entry.role ? `Role: ${entry.role}` : "NO ROLE PROVIDED"}
-${entry.location ? `Location: ${entry.location}` : "NO LOCATION PROVIDED"}
-Start Date: ${entry.startDate}
-End Date: ${entry.endDate || "Present"}
-${entry.body ? `Description: ${entry.body}` : "NO DESCRIPTION PROVIDED"}
-${blurb ? `Accomplishments:\n${blurb.content}` : "NO ACCOMPLISHMENTS PROVIDED"}
-${entry.notes ? `Additional Context: ${entry.notes}` : "NO ADDITIONAL CONTEXT PROVIDED"}
+Company: ${company.company}
+${company.role ? `Role: ${company.role}` : "NO ROLE PROVIDED"}
+${company.location ? `Location: ${company.location}` : "NO LOCATION PROVIDED"}
+Start Date: ${company.startDate}
+End Date: ${company.endDate || "Present"}
+${company.summary ? `Description: ${company.summary}` : "NO DESCRIPTION PROVIDED"}
+${accomplishments ? `Accomplishments:\n${accomplishments}` : "NO ACCOMPLISHMENTS PROVIDED"}
+${company.technologies ? `Technologies: ${company.technologies.join(", ")}` : "NO TECHNOLOGIES PROVIDED"}
 
 END OF ENTRY #${index + 1} - USE NOTHING BEYOND THIS POINT FOR THIS ENTRY
 `.trim()
@@ -681,15 +709,16 @@ END OF ENTRY #${index + 1} - USE NOTHING BEYOND THIS POINT FOR THIS ENTRY
       return this.buildCoverLetterUserPrompt(options)
     }
 
-    // Create blurb map for O(1) lookup instead of O(n) find
-    const blurbMap = new Map(options.experienceBlurbs.map((b) => [b.name, b]))
+    // Group content items by type
+    const companies = options.contentItems.filter((item) => item.type === "company")
 
     // Format experience data (simplified for cover letter)
-    const experienceData = options.experienceEntries
-      .map((entry) => {
-        const blurb = blurbMap.get(entry.id)
-        return `${entry.title}${entry.role ? ` - ${entry.role}` : ""} (${entry.startDate} - ${entry.endDate || "Present"})
-${blurb ? blurb.content : entry.body || ""}`
+    const experienceData = companies
+      .map((item) => {
+        const company = item as import("../types/content-item.types").CompanyItem
+        const accomplishments = company.accomplishments?.slice(0, 2).join("\n") || company.summary || ""
+        return `${company.company}${company.role ? ` - ${company.role}` : ""} (${company.startDate} - ${company.endDate || "Present"})
+${accomplishments}`
       })
       .join("\n\n")
 

@@ -1,9 +1,9 @@
 # MIG-2 — Generator & Content Services Port
 
-- **Status**: Todo
+- **Status**: ✅ COMPLETED 2025-10-20 (commit 8c14187)
 - **Owner**: Worker B
 - **Priority**: P1 (High Impact)
-- **Labels**: priority-p1, repository-backend, type-migration, status-todo
+- **Labels**: priority-p1, repository-backend, type-migration, status-completed
 
 ## What This Issue Covers
 Finish porting the document generator and content services into the new Cloud Functions codebase, including template assets, validation, AI integrations, and tests. All deliverables must live in `job-finder-BE` so future contributors can run them without external context.

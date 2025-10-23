@@ -24,9 +24,9 @@
  *   admin      - Full access to all resources
  *
  * Environments:
- *   local      - Firebase emulator (localhost:9099)
+ *   local      - Firebase emulator (localhost:9099) - (default) database
  *   staging    - portfolio-staging database
- *   production - (default) database
+ *   production - portfolio database
  */
 
 import * as admin from 'firebase-admin';
@@ -47,7 +47,7 @@ const ENVIRONMENTS = {
   },
   production: {
     projectId: 'static-sites-257923',
-    database: '(default)',
+    database: 'portfolio',
     useEmulator: false,
   },
 };

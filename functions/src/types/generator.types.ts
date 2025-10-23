@@ -9,8 +9,7 @@
  */
 
 import { Timestamp } from "@google-cloud/firestore"
-import type { ExperienceEntry } from "../services/experience.service"
-import type { BlurbEntry } from "../services/blurb.service"
+import type { ContentItem } from "./content-item.types"
 
 // =============================================================================
 // Logging
@@ -106,8 +105,7 @@ export interface GenerateResumeOptions {
     companyWebsite?: string
     jobDescription?: string
   }
-  experienceEntries: ExperienceEntry[]
-  experienceBlurbs: BlurbEntry[]
+  contentItems: ContentItem[] // All content items (companies, projects, skills, etc.)
   emphasize?: string[]
   jobMatchData?: JobMatchData // AI-generated insights for this specific job match
   customPrompts?: {
@@ -130,8 +128,7 @@ export interface GenerateCoverLetterOptions {
     companyWebsite?: string
     jobDescription?: string
   }
-  experienceEntries: ExperienceEntry[]
-  experienceBlurbs: BlurbEntry[]
+  contentItems: ContentItem[] // All content items (companies, projects, skills, etc.)
   jobMatchData?: JobMatchData // AI-generated insights for this specific job match
   customPrompts?: {
     systemPrompt?: string
@@ -330,10 +327,9 @@ export interface GeneratorRequest {
     emphasize?: string[] // Keywords to emphasize
   }
 
-  // Experience Data Snapshot
-  experienceData: {
-    entries: ExperienceEntry[]
-    blurbs: BlurbEntry[]
+  // Content Data Snapshot (all content items at time of request)
+  contentData: {
+    items: ContentItem[]
   }
 
   // Request Status

@@ -12,16 +12,17 @@ import type {
   AIProviderType,
   GenerationStep,
 } from "../types/generator.types"
-import type { ExperienceEntry } from "./experience.service"
-import type { BlurbEntry } from "./blurb.service"
+import type { ContentItem } from "../types/content-item.types"
 
 const COLLECTION_NAME = GENERATOR_COLLECTION
+const PERSONAL_INFO_COLLECTION = "job-finder-config"
 const PERSONAL_INFO_DOC_ID = "personal-info"
 
 export class GeneratorService {
   private db: Firestore
   private logger: SimpleLogger
   private collectionName = COLLECTION_NAME
+  private personalInfoCollection = PERSONAL_INFO_COLLECTION
 
   constructor(logger?: SimpleLogger) {
     // Use shared Firestore factory for consistent configuration
@@ -33,10 +34,11 @@ export class GeneratorService {
 
   /**
    * Get the personal info document
+   * NOTE: Now stored in job-finder-config collection instead of generator
    */
   async getPersonalInfo(): Promise<PersonalInfo | null> {
     try {
-      const docRef = this.db.collection(this.collectionName).doc(PERSONAL_INFO_DOC_ID)
+      const docRef = this.db.collection(this.personalInfoCollection).doc(PERSONAL_INFO_DOC_ID)
       const doc = await docRef.get()
 
       if (!doc.exists) {
@@ -49,7 +51,7 @@ export class GeneratorService {
         ...(doc.data() as Omit<PersonalInfo, "id">),
       } as PersonalInfo
 
-      this.logger.info("Retrieved personal info")
+      this.logger.info("Retrieved personal info from job-finder-config")
       return personalInfo
     } catch (error) {
       this.logger.error("Failed to get personal info", { error })
@@ -62,7 +64,7 @@ export class GeneratorService {
    */
   async updatePersonalInfo(data: UpdatePersonalInfoData, userEmail: string): Promise<PersonalInfo> {
     try {
-      const docRef = this.db.collection(this.collectionName).doc(PERSONAL_INFO_DOC_ID)
+      const docRef = this.db.collection(this.personalInfoCollection).doc(PERSONAL_INFO_DOC_ID)
       const doc = await docRef.get()
 
       if (!doc.exists) {
@@ -97,7 +99,7 @@ export class GeneratorService {
         ...(updatedDoc.data() as Omit<PersonalInfo, "id">),
       } as PersonalInfo
 
-      this.logger.info("Updated personal info", {
+      this.logger.info("Updated personal info in job-finder-config", {
         updatedBy: userEmail,
         fieldsUpdated: Object.keys(updates).filter((k) => k !== "updatedAt" && k !== "updatedBy"),
       })
@@ -132,9 +134,8 @@ export class GeneratorService {
       jobDescriptionText?: string
     },
     personalInfo: PersonalInfo,
-    experienceData: {
-      entries: ExperienceEntry[]
-      blurbs: BlurbEntry[]
+    contentData: {
+      contentItems: ContentItem[]
     },
     preferences?: {
       style?: string
@@ -170,7 +171,7 @@ export class GeneratorService {
         job,
         ...(jobMatchId ? { jobMatchId } : {}), // Only include jobMatchId if provided (Firestore doesn't allow undefined)
         ...(preferences ? { preferences } : {}), // Only include preferences if provided (Firestore doesn't allow undefined)
-        experienceData,
+        contentData: { items: contentData.contentItems },
         status: "pending",
         access: {
           viewerSessionId,

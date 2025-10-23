@@ -1,89 +1,160 @@
 # Backend Scripts
 
-Utility scripts for managing the job-finder-BE project.
+## Data Migration & Sync Scripts
 
-## Seed Scripts
+### `migrate-generator-collection.js`
+**Purpose**: Migrate data from old portfolio schema to job-finder schema
 
-Seed scripts populate Firestore with initial data required for the application to function correctly.
+**What it does**:
+- Moves resume/cover letter generation documents from `generator` → `generator-documents`
+- Moves `personal-info` from `generator` → `job-finder-config`
 
-### Personal Info Seed
-
-Seeds the `generator-documents/personal-info` document with default personal information. This document is required for the generator settings page to load correctly.
-
-**Usage:**
-
+**Usage**:
 ```bash
-# Local emulator (default database)
-FIRESTORE_EMULATOR_HOST=localhost:8080 npx tsx scripts/seed-personal-info.ts
-
-# Staging environment (portfolio-staging database)
-GOOGLE_CLOUD_PROJECT=static-sites-257923 DATABASE_ID=portfolio-staging npx tsx scripts/seed-personal-info.ts
-
-# Production environment (portfolio database)
-GOOGLE_CLOUD_PROJECT=static-sites-257923 DATABASE_ID=portfolio npx tsx scripts/seed-personal-info.ts
+FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/migrate-generator-collection.js
 ```
 
-### AI Prompts Seed
+**Status**: ✅ Completed - 79 documents migrated + 1 personal-info
 
-Seeds the `job-finder-config/ai-prompts` document with default AI prompt templates for document generation and job matching.
+---
 
-**Usage:**
+### `seed-local-config.js`
+**Purpose**: Create default job-finder-config documents in local emulator
 
+**What it creates**:
+- `ai-settings` - AI provider configuration
+- `job-filters` - Job filtering rules
+- `queue-settings` - Queue processing settings
+- `scheduler-settings` - Cron job schedules
+- `stop-list` - Excluded companies/keywords/domains
+- `technology-ranks` - Technology priority rankings
+
+**Usage**:
 ```bash
-# Local emulator
-FIRESTORE_EMULATOR_HOST=localhost:8080 npx tsx scripts/seed-ai-prompts.ts
-
-# Staging
-GOOGLE_CLOUD_PROJECT=static-sites-257923 npx tsx scripts/seed-ai-prompts.ts
+FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/seed-local-config.js
 ```
 
-## Development Setup
+**Status**: ✅ Completed - 6 config documents created
 
-When setting up a new development environment with Firestore emulators:
+---
 
-1. **Start the Firebase emulators:**
-   ```bash
-   firebase emulators:start
-   ```
+### `sync-content-from-production.js`
+**Purpose**: Copy content-items from production Firestore to local emulator
 
-2. **Seed required data:**
-   ```bash
-   # Seed personal info (required for settings page)
-   FIRESTORE_EMULATOR_HOST=localhost:8080 npx tsx scripts/seed-personal-info.ts
+**Prerequisites**:
+- Service account key file at `job-finder-BE/service-account.json`
+- OR gcloud authentication
 
-   # Seed AI prompts (required for generator and job matching)
-   FIRESTORE_EMULATOR_HOST=localhost:8080 npx tsx scripts/seed-ai-prompts.ts
-   ```
+**What it does**:
+- Fetches all `content-items` from production database (`portfolio`)
+- Overwrites local emulator `content-items` collection
+- Preserves all document IDs and data
 
-3. **Verify data:**
-   ```bash
-   # Check personal info endpoint
-   curl http://localhost:5001/static-sites-257923/us-central1/manageGenerator/generator/defaults
-   ```
+**Usage**:
+```bash
+# Method 1: With service account
+FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/sync-content-from-production.js
+
+# Method 2: Alternative - use Firebase CLI export/import
+# See export-production-content.sh
+```
+
+**Status**: ⏳ Ready to run (requires credentials)
+
+---
+
+### `export-production-content.sh`
+**Purpose**: Export content-items from production using gcloud CLI
+
+**Prerequisites**:
+- gcloud CLI installed
+- Authenticated: `gcloud auth login`
+- Project set: `gcloud config set project static-sites-257923`
+
+**What it does**:
+- Exports content-items to Cloud Storage
+- Provides instructions for downloading and importing
+
+**Usage**:
+```bash
+./scripts/export-production-content.sh
+```
+
+---
+
+### `start-emulators.sh`
+**Purpose**: Start Firebase emulators with data persistence
+
+**What it does**:
+- Starts emulators with `--import` to restore data
+- Configures `--export-on-exit` to save data
+- Ensures data persists across restarts
+
+**Usage**:
+```bash
+./scripts/start-emulators.sh
+```
+
+**Note**: The Makefile `make emulators` command is preferred.
+
+---
+
+## Quick Reference
+
+### Initial Setup (One Time)
+```bash
+# 1. Migrate generator collection
+FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/migrate-generator-collection.js
+
+# 2. Seed config documents
+FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/seed-local-config.js
+
+# 3. Sync content-items from production
+FIRESTORE_EMULATOR_HOST=localhost:8080 node scripts/sync-content-from-production.js
+```
+
+### Daily Development
+```bash
+# Start emulators with data persistence
+make emulators
+
+# Stop emulators (auto-exports data)
+make emulators-stop
+```
+
+### Manual Data Export/Import
+```bash
+# Export current emulator data
+firebase emulators:export .firebase/emulator-data
+
+# Import data to emulator
+firebase emulators:start --import=.firebase/emulator-data
+```
 
 ## Troubleshooting
 
-### Settings Page Shows 404 Error
+### "Service account not found"
+If `sync-content-from-production.js` fails:
 
-If the frontend settings page shows a 404 error when trying to load personal info:
+**Option 1**: Use Firebase Console
+1. Go to https://console.firebase.google.com/project/static-sites-257923/firestore
+2. Click Import/Export
+3. Export `content-items` collection
+4. Download and extract
+5. Import: `firebase emulators:start --import=<path>`
 
-1. **Check if personal-info document exists:**
-   - Open Firestore Emulator UI: http://localhost:4000/firestore
-   - Navigate to `generator-documents` collection
-   - Verify `personal-info` document exists
+**Option 2**: Get service account key
+1. Go to https://console.firebase.google.com/project/static-sites-257923/settings/serviceaccounts
+2. Click "Generate new private key"
+3. Save as `job-finder-BE/service-account.json`
+4. Run sync script again
 
-2. **Seed the data:**
-   ```bash
-   FIRESTORE_EMULATOR_HOST=localhost:8080 npx tsx scripts/seed-personal-info.ts
-   ```
+### "FIRESTORE_EMULATOR_HOST not set"
+Make sure emulators are running and set the environment variable:
+```bash
+export FIRESTORE_EMULATOR_HOST=localhost:8080
+```
 
-3. **Test the endpoint:**
-   ```bash
-   curl http://localhost:5001/static-sites-257923/us-central1/manageGenerator/generator/defaults
-   ```
+### "Collections empty after restart"
+Always use `make emulators` which includes `--import` and `--export-on-exit` flags.
 
-   Should return 200 OK with personal info data.
-
-### Empty Firestore After Emulator Restart
-
-The Firestore emulator doesn't persist data by default. To maintain data across restarts, configure persistence in `firebase.json` or re-run seed scripts after each restart.
