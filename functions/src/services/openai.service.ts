@@ -237,7 +237,6 @@ What you CANNOT do:
     const projects = options.contentItems.filter((item) => item.type === "project")
     const skills = options.contentItems.filter((item) => item.type === "skill-group")
     const education = options.contentItems.filter((item) => item.type === "education")
-    const textSections = options.contentItems.filter((item) => item.type === "text-section")
 
     // Format company experience (employment history)
     const experienceData = companies

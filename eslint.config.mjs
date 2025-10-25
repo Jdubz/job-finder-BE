@@ -6,6 +6,21 @@ import globals from 'globals';
 export default [
   eslint.configs.recommended,
   {
+    files: ['**/*.js'],
+    languageOptions: {
+      ecmaVersion: 2020,
+      sourceType: 'commonjs',
+      globals: {
+        ...globals.node,
+        ...globals.es2020
+      }
+    },
+    rules: {
+      'no-console': 'off', // Allow console in Node.js scripts
+      'no-undef': 'off' // Node.js globals are allowed
+    }
+  },
+  {
     files: ['functions/src/**/*.ts'],
     languageOptions: {
       parser: tsparser,
@@ -26,7 +41,7 @@ export default [
       ...tseslint.configs.recommended.rules,
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { 
+      '@typescript-eslint/no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_'
       }],

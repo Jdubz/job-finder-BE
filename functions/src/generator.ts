@@ -41,9 +41,14 @@ import type { GenerationType, GeneratorResponse, GeneratorRequest } from "./type
 import { logger } from "./utils/logger"
 import { generateRequestId } from "./utils/request-id"
 import { corsHandler } from "./config/cors"
-import { GENERATOR_ERROR_CODES as ERROR_CODES } from "./config/error-codes"
 import { PACKAGE_VERSION } from "./config/versions"
 import { DATABASE_ID } from "./config/database"
+import {
+  sendErrorResponse,
+  sendValidationError,
+  sendNotFoundError,
+  sendInternalError,
+} from "./utils/response-helpers"
 
 // Initialize services
 const generatorService = new GeneratorService(logger)
@@ -311,14 +316,10 @@ const handleGeneratorRequest = async (req: Request, res: Response): Promise<void
           }
 
           // Unknown route
-          const err = ERROR_CODES.METHOD_NOT_ALLOWED
-          logger.warning("Method not allowed", { method: req.method, path, requestId })
-          res.status(err.status).json({
-            success: false,
-            error: "METHOD_NOT_ALLOWED",
-            errorCode: err.code,
-            message: err.message,
+          sendErrorResponse(res, 405, "Method not allowed", "METHOD_NOT_ALLOWED", {
+            logger,
             requestId,
+            logContext: { method: req.method, path },
           })
           resolve()
         } catch (err) {
@@ -327,13 +328,8 @@ const handleGeneratorRequest = async (req: Request, res: Response): Promise<void
       })
     })
   } catch (error) {
-    logger.error("Unexpected error in generator handler", { error, requestId })
-    const err = ERROR_CODES.INTERNAL_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "INTERNAL_ERROR",
-      errorCode: err.code,
-      message: err.message,
+    sendInternalError(res, "Unexpected error in generator handler", error instanceof Error ? error : undefined, {
+      logger,
       requestId,
     })
   }
@@ -350,19 +346,10 @@ async function handleGenerate(req: Request, res: Response, requestId: string): P
     const { error, value } = generateRequestSchema.validate(req.body)
 
     if (error) {
-      logger.warning("Validation failed for generate", {
-        error: error.details,
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-      })
-
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: error.details[0].message,
-        details: error.details,
-        requestId,
+        logContext: { details: error.details },
       })
       return
     }
@@ -735,18 +722,13 @@ async function handleGenerate(req: Request, res: Response, requestId: string): P
       throw generationError
     }
   } catch (error) {
-    logger.error("Failed to generate documents", { error, requestId })
-
     const errorMessage = error instanceof Error ? error.message : String(error)
     const isAIError = errorMessage.includes("OpenAI") || errorMessage.includes("Gemini") || errorMessage.includes("AI")
-    const err = isAIError ? ERROR_CODES.OPENAI_ERROR : ERROR_CODES.INTERNAL_ERROR
 
-    res.status(err.status).json({
-      success: false,
-      error: isAIError ? "AI_ERROR" : "INTERNAL_ERROR",
-      errorCode: err.code,
-      message: errorMessage,
+    sendInternalError(res, errorMessage, error instanceof Error ? error : undefined, {
+      logger,
       requestId,
+      logContext: { isAIError },
     })
   }
 }
@@ -760,19 +742,10 @@ async function handleStartGeneration(req: Request, res: Response, requestId: str
     const { error, value } = generateRequestSchema.validate(req.body)
 
     if (error) {
-      logger.warning("Validation failed for start generation", {
-        error: error.details,
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-      })
-
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: error.details[0].message,
-        details: error.details,
-        requestId,
+        logContext: { details: error.details },
       })
       return
     }
@@ -844,14 +817,8 @@ async function handleStartGeneration(req: Request, res: Response, requestId: str
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to start generation", { error, requestId })
-
-    const err = ERROR_CODES.INTERNAL_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "INTERNAL_ERROR",
-      errorCode: err.code,
-      message: error instanceof Error ? error.message : "Failed to start generation",
+    sendInternalError(res, error instanceof Error ? error.message : "Failed to start generation", error instanceof Error ? error : undefined, {
+      logger,
       requestId,
     })
   }
@@ -867,14 +834,7 @@ async function handleExecuteStep(req: Request, res: Response, requestId: string)
     const generationRequestId = path.split("/").pop()
 
     if (!generationRequestId) {
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: "Request ID is required",
-        requestId,
-      })
+      sendValidationError(res, "Request ID is required", { logger, requestId })
       return
     }
 
@@ -883,14 +843,7 @@ async function handleExecuteStep(req: Request, res: Response, requestId: string)
     // Get request document
     const request = await generatorService.getRequest(generationRequestId)
     if (!request) {
-      const err = ERROR_CODES.NOT_FOUND
-      res.status(err.status).json({
-        success: false,
-        error: "NOT_FOUND",
-        errorCode: err.code,
-        message: "Generation request not found",
-        requestId,
-      })
+      sendNotFoundError(res, "Generation request", { logger, requestId })
       return
     }
 
@@ -934,16 +887,16 @@ async function handleExecuteStep(req: Request, res: Response, requestId: string)
         error: stepError,
       })
 
-      const err = ERROR_CODES.INTERNAL_ERROR
-      res.status(err.status).json({
+      res.status(500).json({
         success: false,
         error: "STEP_EXECUTION_FAILED",
-        errorCode: err.code,
+        code: "STEP_EXECUTION_FAILED",
         message: stepError instanceof Error ? stepError.message : "Step execution failed",
         data: {
           failedStep: nextStep.id,
           requestId: generationRequestId,
         },
+        timestamp: new Date().toISOString(),
         requestId,
       })
       return
@@ -1022,14 +975,8 @@ async function handleExecuteStep(req: Request, res: Response, requestId: string)
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to execute step", { error, requestId })
-
-    const err = ERROR_CODES.INTERNAL_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "INTERNAL_ERROR",
-      errorCode: err.code,
-      message: error instanceof Error ? error.message : "Failed to execute step",
+    sendInternalError(res, error instanceof Error ? error.message : "Failed to execute step", error instanceof Error ? error : undefined, {
+      logger,
       requestId,
     })
   }
@@ -1109,13 +1056,13 @@ async function executeGenerateResume(request: GeneratorRequest, requestId: strin
   // Generate resume content
   const result = await aiProvider.generateResume({
     personalInfo: {
-      name: request.personalInfo.name,
-      email: request.personalInfo.email,
-      phone: request.personalInfo.phone,
-      location: request.personalInfo.location,
-      website: request.personalInfo.website,
-      github: request.personalInfo.github,
-      linkedin: request.personalInfo.linkedin,
+      name: request.personalInfo.name || "",
+      email: request.personalInfo.email || "",
+      phone: request.personalInfo.phone || "",
+      location: request.personalInfo.location || "",
+      website: request.personalInfo.website || "",
+      github: request.personalInfo.github || "",
+      linkedin: request.personalInfo.linkedin || "",
     },
     job: {
       role: request.job.role,
@@ -1129,9 +1076,14 @@ async function executeGenerateResume(request: GeneratorRequest, requestId: strin
     customPrompts: personalInfo.aiPrompts?.resume,
   })
 
+  // Clean the result content to remove undefined values before saving
+  const cleanContent = typeof result.content === 'object' && result.content !== null 
+    ? JSON.parse(JSON.stringify(result.content, (key, value) => value === undefined ? null : value))
+    : result.content
+
   // Save intermediate results to Firestore
   await generatorService.updateIntermediateResults(request.id, {
-    resumeContent: result.content,
+    resumeContent: cleanContent,
     resumeTokenUsage: result.tokenUsage,
     model: result.model,
   })
@@ -1178,8 +1130,8 @@ async function executeGenerateCoverLetter(request: GeneratorRequest, requestId: 
   // Generate cover letter content
   const result = await aiProvider.generateCoverLetter({
     personalInfo: {
-      name: request.personalInfo.name,
-      email: request.personalInfo.email,
+      name: request.personalInfo.name || "",
+      email: request.personalInfo.email || "",
     },
     job: {
       role: request.job.role,
@@ -1192,9 +1144,14 @@ async function executeGenerateCoverLetter(request: GeneratorRequest, requestId: 
     customPrompts: personalInfo.aiPrompts?.coverLetter,
   })
 
+  // Clean the result content to remove undefined values before saving
+  const cleanContent = typeof result.content === 'object' && result.content !== null 
+    ? JSON.parse(JSON.stringify(result.content, (key, value) => value === undefined ? null : value))
+    : result.content
+
   // Save intermediate results to Firestore
   await generatorService.updateIntermediateResults(request.id, {
-    coverLetterContent: result.content,
+    coverLetterContent: cleanContent,
     coverLetterTokenUsage: result.tokenUsage,
     model: result.model,
   })
@@ -1393,14 +1350,7 @@ async function handleGetPersonalInfo(req: Request, res: Response, requestId: str
     const personalInfo = await generatorService.getPersonalInfo()
 
     if (!personalInfo) {
-      const err = ERROR_CODES.NOT_FOUND
-      res.status(err.status).json({
-        success: false,
-        error: "NOT_FOUND",
-        errorCode: err.code,
-        message: "Personal info not found",
-        requestId,
-      })
+      sendNotFoundError(res, "Personal info", { logger, requestId })
       return
     }
 
@@ -1410,16 +1360,7 @@ async function handleGetPersonalInfo(req: Request, res: Response, requestId: str
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to get personal info", { error, requestId })
-
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -1432,14 +1373,7 @@ async function handleGetRequest(req: Request, res: Response, requestId: string):
     const generationRequestId = path.split("/").pop()
 
     if (!generationRequestId) {
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: "Request ID is required",
-        requestId,
-      })
+      sendValidationError(res, "Request ID is required", { logger, requestId })
       return
     }
 
@@ -1448,14 +1382,7 @@ async function handleGetRequest(req: Request, res: Response, requestId: string):
     const request = await generatorService.getRequest(generationRequestId)
 
     if (!request) {
-      const err = ERROR_CODES.NOT_FOUND
-      res.status(err.status).json({
-        success: false,
-        error: "NOT_FOUND",
-        errorCode: err.code,
-        message: "Generation request not found",
-        requestId,
-      })
+      sendNotFoundError(res, "Generation request", { logger, requestId })
       return
     }
 
@@ -1471,16 +1398,7 @@ async function handleGetRequest(req: Request, res: Response, requestId: string):
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to get request", { error, requestId })
-
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -1493,19 +1411,10 @@ async function handleUpdatePersonalInfo(req: AuthenticatedRequest, res: Response
     const { error, value } = updatePersonalInfoSchema.validate(req.body)
 
     if (error) {
-      logger.warning("Validation failed for update personal info", {
-        error: error.details,
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-      })
-
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: error.details[0].message,
-        details: error.details,
-        requestId,
+        logContext: { details: error.details },
       })
       return
     }
@@ -1526,16 +1435,7 @@ async function handleUpdatePersonalInfo(req: AuthenticatedRequest, res: Response
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to update personal info", { error, requestId })
-
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -1559,16 +1459,7 @@ async function handleListRequests(req: AuthenticatedRequest, res: Response, requ
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to list requests", { error, requestId })
-
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -1661,14 +1552,7 @@ async function handleUploadImage(req: AuthenticatedRequest & { rawBody?: Buffer 
 
     // Validate inputs
     if (!imageType || !fileBuffer || !filename || !contentType) {
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: "Missing required fields: imageType, file",
-        requestId,
-      })
+      sendValidationError(res, "Missing required fields: imageType, file", { logger, requestId })
       return
     }
 
@@ -1715,14 +1599,8 @@ async function handleUploadImage(req: AuthenticatedRequest & { rawBody?: Buffer 
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to upload image", { error, requestId })
-
-    const err = ERROR_CODES.INTERNAL_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "IMAGE_UPLOAD_FAILED",
-      errorCode: err.code,
-      message: error instanceof Error ? error.message : "Failed to upload image",
+    sendInternalError(res, error instanceof Error ? error.message : "Failed to upload image", error instanceof Error ? error : undefined, {
+      logger,
       requestId,
     })
   }
@@ -1752,16 +1630,7 @@ async function handleListJobMatches(req: AuthenticatedRequest, res: Response, re
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to list job matches", { error, requestId })
-
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -1775,14 +1644,7 @@ async function handleUpdateJobMatch(req: AuthenticatedRequest, res: Response, re
     const jobMatchId = path.split("/").pop()
 
     if (!jobMatchId) {
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: "Job match ID is required",
-        requestId,
-      })
+      sendValidationError(res, "Job match ID is required", { logger, requestId })
       return
     }
 
@@ -1790,19 +1652,10 @@ async function handleUpdateJobMatch(req: AuthenticatedRequest, res: Response, re
     const { error, value } = updateJobMatchSchema.validate(req.body)
 
     if (error) {
-      logger.warning("Validation failed for update job match", {
-        error: error.details,
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-      })
-
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: error.details[0].message,
-        details: error.details,
-        requestId,
+        logContext: { details: error.details },
       })
       return
     }
@@ -1832,16 +1685,7 @@ async function handleUpdateJobMatch(req: AuthenticatedRequest, res: Response, re
       requestId,
     })
   } catch (error) {
-    logger.error("Failed to update job match", { error, requestId })
-
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
