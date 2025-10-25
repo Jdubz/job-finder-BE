@@ -16,6 +16,15 @@ import { generateRequestId } from "./utils/request-id";
 import { corsHandler } from "./config/cors";
 import { JOB_QUEUE_ERROR_CODES } from "./config/error-codes";
 import { PACKAGE_VERSION } from "./config/versions";
+import {
+  sendSuccessResponse,
+  sendErrorResponse,
+  sendValidationError,
+  sendAuthError,
+  sendNotFoundError,
+  sendRateLimitError,
+  sendInternalError,
+} from "./utils/response-helpers";
 
 // Initialize service
 const jobQueueService = new JobQueueService(logger);
@@ -64,34 +73,6 @@ const submitScrapeSchema = Joi.object({
   }).optional(),
 });
 
-/**
- * Helper function to send error response
- */
-function sendError(
-  res: Response,
-  statusCode: number,
-  errorCode: string,
-  message: string,
-  requestId: string
-) {
-  res.status(statusCode).json({
-    success: false,
-    error: errorCode,
-    message,
-    requestId,
-  });
-}
-
-/**
- * Helper function to send success response
- */
-function sendSuccess(res: Response, data: any, requestId: string) {
-  res.status(200).json({
-    success: true,
-    data,
-    requestId,
-  });
-}
 
 /**
  * Handle POST /submit - Submit job to queue (public)
@@ -106,18 +87,11 @@ async function handleSubmitJob(
     const { error, value } = submitJobSchema.validate(req.body);
 
     if (error) {
-      logger.warning("Invalid submit job request", {
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-        error: error.details,
+        logContext: { details: error.details },
       });
-
-      sendError(
-        res,
-        400,
-        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
-        error.details[0].message,
-        requestId
-      );
       return;
     }
 
@@ -134,13 +108,7 @@ async function handleSubmitJob(
       generationId
     );
 
-    logger.info("Job submitted successfully", {
-      requestId,
-      queueItemId: queueItem.id,
-      userId,
-    });
-
-    sendSuccess(
+    sendSuccessResponse(
       res,
       {
         id: queueItem.id,
@@ -149,17 +117,18 @@ async function handleSubmitJob(
           ? "Job submitted with pre-generated documents"
           : "Job submitted successfully",
       },
-      requestId
+      {
+        logger,
+        requestId,
+        logContext: { queueItemId: queueItem.id, userId },
+      }
     );
   } catch (error) {
-    logger.error("Failed to submit job", { error, requestId });
-
-    sendError(
+    sendInternalError(
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to submit job",
-      requestId
+      error instanceof Error ? error : undefined,
+      { logger, requestId }
     );
   }
 }
@@ -177,18 +146,11 @@ async function handleSubmitCompany(
     const { error, value } = submitCompanySchema.validate(req.body);
 
     if (error) {
-      logger.warning("Invalid submit company request", {
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-        error: error.details,
+        logContext: { details: error.details },
       });
-
-      sendError(
-        res,
-        400,
-        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
-        error.details[0].message,
-        requestId
-      );
       return;
     }
 
@@ -205,30 +167,25 @@ async function handleSubmitCompany(
       userId
     );
 
-    logger.info("Company submitted successfully", {
-      requestId,
-      queueItemId: queueItem.id,
-      userId,
-    });
-
-    sendSuccess(
+    sendSuccessResponse(
       res,
       {
         id: queueItem.id,
         status: queueItem.status,
         message: "Company submitted successfully",
       },
-      requestId
+      {
+        logger,
+        requestId,
+        logContext: { queueItemId: queueItem.id, userId },
+      }
     );
   } catch (error) {
-    logger.error("Failed to submit company", { error, requestId });
-
-    sendError(
+    sendInternalError(
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to submit company",
-      requestId
+      error instanceof Error ? error : undefined,
+      { logger, requestId }
     );
   }
 }
@@ -246,18 +203,11 @@ async function handleSubmitScrape(
     const { error, value } = submitScrapeSchema.validate(req.body);
 
     if (error) {
-      logger.warning("Invalid submit scrape request", {
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-        error: error.details,
+        logContext: { details: error.details },
       });
-
-      sendError(
-        res,
-        400,
-        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
-        error.details[0].message,
-        requestId
-      );
       return;
     }
 
@@ -267,7 +217,7 @@ async function handleSubmitScrape(
     const userId = (req as any).user?.uid;
 
     if (!userId) {
-      sendError(res, 401, "UNAUTHORIZED", "Authentication required", requestId);
+      sendAuthError(res, "Authentication required", { logger, requestId });
       return;
     }
 
@@ -275,48 +225,36 @@ async function handleSubmitScrape(
     const hasPending = await jobQueueService.hasPendingScrape(userId);
 
     if (hasPending) {
-      logger.warning("User already has pending scrape", {
+      sendRateLimitError(res, "You already have a scrape request in progress", {
+        logger,
         requestId,
-        userId,
+        logContext: { userId },
       });
-
-      sendError(
-        res,
-        429,
-        "SCRAPE_IN_PROGRESS",
-        "You already have a scrape request in progress",
-        requestId
-      );
       return;
     }
 
     // Submit scrape request
     const queueItem = await jobQueueService.submitScrape(userId, scrape_config);
 
-    logger.info("Scrape request submitted successfully", {
-      requestId,
-      queueItemId: queueItem.id,
-      userId,
-    });
-
-    sendSuccess(
+    sendSuccessResponse(
       res,
       {
         id: queueItem.id,
         status: queueItem.status,
         message: "Scrape request submitted successfully",
       },
-      requestId
+      {
+        logger,
+        requestId,
+        logContext: { queueItemId: queueItem.id, userId },
+      }
     );
   } catch (error) {
-    logger.error("Failed to submit scrape request", { error, requestId });
-
-    sendError(
+    sendInternalError(
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
       "Failed to submit scrape request",
-      requestId
+      error instanceof Error ? error : undefined,
+      { logger, requestId }
     );
   }
 }
@@ -334,7 +272,7 @@ async function handleHasPendingScrape(
     const userId = (req as any).user?.uid;
 
     if (!userId) {
-      sendError(res, 401, "UNAUTHORIZED", "Authentication required", requestId);
+      sendAuthError(res, "Authentication required", { logger, requestId });
       return;
     }
 
@@ -347,22 +285,48 @@ async function handleHasPendingScrape(
       hasPending,
     });
 
-    sendSuccess(
+    sendSuccessResponse(
+
+
       res,
+
+
       {
         hasPendingScrape: hasPending,
       },
-      requestId
+
+
+      {
+
+
+        logger,
+
+
+        requestId: requestId,
+
+
+      }
+
+
     );
   } catch (error) {
     logger.error("Failed to check for pending scrape", { error, requestId });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to check for pending scrape",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -385,7 +349,7 @@ async function handleGetQueueStatus(
         queueItemId: id,
       });
 
-      sendError(res, 404, "NOT_FOUND", "Queue item not found", requestId);
+      sendNotFoundError(res, "Queue item", { logger, requestId });
       return;
     }
 
@@ -394,16 +358,25 @@ async function handleGetQueueStatus(
       queueItemId: id,
     });
 
-    sendSuccess(res, queueItem, requestId);
+    sendSuccessResponse(res, queueItem, { logger, requestId });
   } catch (error) {
     logger.error("Failed to get queue status", { error, requestId, id });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to get queue status",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -424,16 +397,25 @@ async function handleGetStats(
       total: stats.total,
     });
 
-    sendSuccess(res, stats, requestId);
+    sendSuccessResponse(res, stats, { logger, requestId });
   } catch (error) {
     logger.error("Failed to get queue stats", { error, requestId });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to get queue stats",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -454,16 +436,25 @@ async function handleGetStopList(
       companiesCount: stopList.excludedCompanies.length,
     });
 
-    sendSuccess(res, stopList, requestId);
+    sendSuccessResponse(res, stopList, { logger, requestId });
   } catch (error) {
     logger.error("Failed to get stop list", { error, requestId });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to get stop list",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -483,16 +474,25 @@ async function handleGetAISettings(
       requestId,
     });
 
-    sendSuccess(res, settings, requestId);
+    sendSuccessResponse(res, settings, { logger, requestId });
   } catch (error) {
     logger.error("Failed to get AI settings", { error, requestId });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to get AI settings",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -512,16 +512,25 @@ async function handleGetQueueSettings(
       requestId,
     });
 
-    sendSuccess(res, settings, requestId);
+    sendSuccessResponse(res, settings, { logger, requestId });
   } catch (error) {
     logger.error("Failed to get queue settings", { error, requestId });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to get queue settings",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -543,13 +552,30 @@ async function handleRetryQueueItem(
       queueItemId: id,
     });
 
-    sendSuccess(
+    sendSuccessResponse(
+
+
       res,
+
+
       {
         id,
         message: "Queue item retry initiated",
       },
-      requestId
+
+
+      {
+
+
+        logger,
+
+
+        requestId: requestId,
+
+
+      }
+
+
     );
   } catch (error) {
     logger.error("Failed to retry queue item", { error, requestId, id });
@@ -557,12 +583,18 @@ async function handleRetryQueueItem(
     const errorMessage =
       error instanceof Error ? error.message : "Failed to retry queue item";
 
-    sendError(
+    sendValidationError(
+
+
       res,
-      400,
-      "RETRY_FAILED",
+
+
       errorMessage,
-      requestId
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -584,23 +616,49 @@ async function handleDeleteQueueItem(
       queueItemId: id,
     });
 
-    sendSuccess(
+    sendSuccessResponse(
+
+
       res,
+
+
       {
         id,
         message: "Queue item deleted successfully",
       },
-      requestId
+
+
+      {
+
+
+        logger,
+
+
+        requestId: requestId,
+
+
+      }
+
+
     );
   } catch (error) {
     logger.error("Failed to delete queue item", { error, requestId, id });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to delete queue item",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -623,12 +681,18 @@ async function handleUpdateStopList(
         error: error.details,
       });
 
-      sendError(
+      sendValidationError(
+
+
         res,
-        400,
-        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
+
+
         error.details[0].message,
-        requestId
+
+
+        { logger, requestId: requestId }
+
+
       );
       return;
     }
@@ -640,22 +704,48 @@ async function handleUpdateStopList(
       companiesCount: value.excludedCompanies.length,
     });
 
-    sendSuccess(
+    sendSuccessResponse(
+
+
       res,
+
+
       {
         message: "Stop list updated successfully",
       },
-      requestId
+
+
+      {
+
+
+        logger,
+
+
+        requestId: requestId,
+
+
+      }
+
+
     );
   } catch (error) {
     logger.error("Failed to update stop list", { error, requestId });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to update stop list",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -678,12 +768,18 @@ async function handleUpdateAISettings(
         error: error.details,
       });
 
-      sendError(
+      sendValidationError(
+
+
         res,
-        400,
-        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
+
+
         error.details[0].message,
-        requestId
+
+
+        { logger, requestId: requestId }
+
+
       );
       return;
     }
@@ -694,22 +790,48 @@ async function handleUpdateAISettings(
       requestId,
     });
 
-    sendSuccess(
+    sendSuccessResponse(
+
+
       res,
+
+
       {
         message: "AI settings updated successfully",
       },
-      requestId
+
+
+      {
+
+
+        logger,
+
+
+        requestId: requestId,
+
+
+      }
+
+
     );
   } catch (error) {
     logger.error("Failed to update AI settings", { error, requestId });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to update AI settings",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -732,12 +854,18 @@ async function handleUpdateQueueSettings(
         error: error.details,
       });
 
-      sendError(
+      sendValidationError(
+
+
         res,
-        400,
-        JOB_QUEUE_ERROR_CODES.VALIDATION_FAILED.code,
+
+
         error.details[0].message,
-        requestId
+
+
+        { logger, requestId: requestId }
+
+
       );
       return;
     }
@@ -748,22 +876,48 @@ async function handleUpdateQueueSettings(
       requestId,
     });
 
-    sendSuccess(
+    sendSuccessResponse(
+
+
       res,
+
+
       {
         message: "Queue settings updated successfully",
       },
-      requestId
+
+
+      {
+
+
+        logger,
+
+
+        requestId: requestId,
+
+
+      }
+
+
     );
   } catch (error) {
     logger.error("Failed to update queue settings", { error, requestId });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "Failed to update queue settings",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 }
@@ -971,7 +1125,7 @@ const handleJobQueueRequest = async (req: Request, res: Response) => {
             path,
           });
 
-          sendError(res, 404, "NOT_FOUND", "Route not found", requestId);
+          sendNotFoundError(res, "Route", { logger, requestId });
           resolve();
         } catch (error) {
           reject(error);
@@ -984,12 +1138,21 @@ const handleJobQueueRequest = async (req: Request, res: Response) => {
       requestId,
     });
 
-    sendError(
+    sendInternalError(
+
+
       res,
-      500,
-      JOB_QUEUE_ERROR_CODES.INTERNAL_ERROR.code,
+
+
       "An unexpected error occurred",
-      requestId
+
+
+      undefined,
+
+
+      { logger, requestId: requestId }
+
+
     );
   }
 };

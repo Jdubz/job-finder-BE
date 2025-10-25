@@ -5,9 +5,8 @@
  * Provides consistent error handling, success responses, and HTTP status codes.
  */
 
-import type { Response } from 'firebase-functions/v2/https';
+import type { Response } from 'express';
 import { SimpleLogger } from '../types/logger.types';
-import { ERROR_CODES } from '../config/error-codes';
 
 /**
  * Standard API response format
@@ -118,7 +117,7 @@ export function sendValidationError(
     res,
     400,
     message,
-    ERROR_CODES.VALIDATION_ERROR.code,
+    'VALIDATION_ERROR',
     options
   );
 }
@@ -135,7 +134,7 @@ export function sendAuthError(
     res,
     401,
     message,
-    ERROR_CODES.UNAUTHORIZED.code,
+    'UNAUTHORIZED',
     options
   );
 }
@@ -152,7 +151,7 @@ export function sendForbiddenError(
     res,
     403,
     message,
-    ERROR_CODES.FORBIDDEN.code,
+    'FORBIDDEN',
     options
   );
 }
@@ -169,7 +168,7 @@ export function sendNotFoundError(
     res,
     404,
     `${resource} not found`,
-    ERROR_CODES.NOT_FOUND.code,
+    'NOT_FOUND',
     options
   );
 }
@@ -186,7 +185,7 @@ export function sendRateLimitError(
     res,
     429,
     message,
-    ERROR_CODES.RATE_LIMIT.code,
+    'RATE_LIMIT',
     options
   );
 }
@@ -216,7 +215,7 @@ export function sendInternalError(
     res,
     500,
     message,
-    ERROR_CODES.INTERNAL_ERROR.code,
+    'INTERNAL_ERROR',
     options
   );
 }

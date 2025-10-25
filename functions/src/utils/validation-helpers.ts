@@ -5,7 +5,7 @@
  * Provides reusable validators for common use cases.
  */
 
-import type { Response } from 'firebase-functions/v2/https';
+import type { Response } from 'express';
 import { sendValidationError } from './response-helpers';
 import { PATTERNS, UPLOAD_LIMITS, PAGINATION } from '../config/constants';
 import { SimpleLogger } from '../types/logger.types';
@@ -136,7 +136,7 @@ export function validateFileUpload(file: {
   // Validate mime type if provided
   if (file.mimeType) {
     const allowedTypes = Object.values(UPLOAD_LIMITS.ALLOWED_MIME_TYPES);
-    if (!allowedTypes.includes(file.mimeType)) {
+    if (!allowedTypes.includes(file.mimeType as typeof allowedTypes[number])) {
       errors.push(
         `Invalid file type. Allowed types: ${allowedTypes.join(', ')}`
       );
