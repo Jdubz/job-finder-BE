@@ -12,7 +12,7 @@
 const { spawn } = require('node:child_process')
 const fs = require('node:fs')
 const path = require('node:path')
-const chalk = require('chalk').default
+const chalk = require('chalk')
 
 // Configuration
 const LOCK_FILE = path.join(__dirname, '.test-lock')

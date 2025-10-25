@@ -12,7 +12,7 @@ export default defineConfig({
     environment: 'node',
     
     // CRITICAL: Only include test files from source directory
-    include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.{ts,tsx}'],
+    include: ['functions/src/**/*.{test,spec}.{ts,tsx}', 'functions/test/**/*.{test,spec}.{ts,tsx}'],
     
     // CRITICAL: Exclude everything else to prevent explosions
     exclude: [
