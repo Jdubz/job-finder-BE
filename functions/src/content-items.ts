@@ -7,8 +7,14 @@ import { experienceRateLimiter } from "./middleware/rate-limit.middleware"
 import { logger } from "./utils/logger"
 import { generateRequestId } from "./utils/request-id"
 import { corsHandler } from "./config/cors"
-import { CONTENT_ITEMS_ERROR_CODES as ERROR_CODES } from "./config/error-codes"
 import { PACKAGE_VERSION } from "./config/versions"
+import {
+  sendSuccessResponse,
+  sendErrorResponse,
+  sendValidationError,
+  sendNotFoundError,
+  sendInternalError,
+} from "./utils/response-helpers"
 import type {
   ContentItemType,
   CreateContentItemData,
@@ -226,14 +232,10 @@ const handleContentItemsRequest = async (req: Request, res: Response): Promise<v
           }
 
           // Unknown route
-          const err = ERROR_CODES.METHOD_NOT_ALLOWED
-          logger.warning("Method not allowed", { method: req.method, path, requestId })
-          res.status(err.status).json({
-            success: false,
-            error: "METHOD_NOT_ALLOWED",
-            errorCode: err.code,
-            message: err.message,
+          sendErrorResponse(res, 405, "Method not allowed", "METHOD_NOT_ALLOWED", {
+            logger,
             requestId,
+            logContext: { method: req.method, path },
           })
           resolve()
         } catch (err) {
@@ -242,20 +244,10 @@ const handleContentItemsRequest = async (req: Request, res: Response): Promise<v
       })
     })
   } catch (error) {
-    logger.error("Unexpected error in content items handler", {
-      error,
+    sendInternalError(res, "Unexpected error in content items handler", error instanceof Error ? error : undefined, {
+      logger,
       requestId,
-      method: req.method,
-      url: req.url,
-    })
-
-    const err = ERROR_CODES.INTERNAL_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "INTERNAL_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
+      logContext: { method: req.method, url: req.url },
     })
   }
 }
@@ -278,25 +270,14 @@ async function handleListItems(req: Request, res: Response, requestId: string): 
 
     const items = await contentItemService.listItems(options)
 
-    res.status(200).json({
-      success: true,
-      data: {
+    sendSuccessResponse(res, {
         items,
         count: items.length,
-      },
-      requestId,
-    })
+      }, { logger, requestId })
   } catch (error) {
     logger.error("Failed to list content items", { error, requestId })
 
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -309,22 +290,11 @@ async function handleGetHierarchy(req: Request, res: Response, requestId: string
 
     const hierarchy = await contentItemService.getHierarchy()
 
-    res.status(200).json({
-      success: true,
-      data: { hierarchy },
-      requestId,
-    })
+    sendSuccessResponse(res, { hierarchy }, { logger, requestId })
   } catch (error) {
     logger.error("Failed to get hierarchy", { error, requestId })
 
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -338,33 +308,15 @@ async function handleGetItem(req: Request, res: Response, requestId: string, id:
     const item = await contentItemService.getItem(id)
 
     if (!item) {
-      const err = ERROR_CODES.NOT_FOUND
-      res.status(err.status).json({
-        success: false,
-        error: "NOT_FOUND",
-        errorCode: err.code,
-        message: "Content item not found",
-        requestId,
-      })
+      sendNotFoundError(res, "Content item", { logger, requestId })
       return
     }
 
-    res.status(200).json({
-      success: true,
-      data: { item },
-      requestId,
-    })
+    sendSuccessResponse(res, { item }, { logger, requestId })
   } catch (error) {
     logger.error("Failed to get content item", { error, requestId, id })
 
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -377,20 +329,10 @@ async function handleCreateItem(req: AuthenticatedRequest, res: Response, reques
     const { error, value } = createSchema.validate(req.body)
 
     if (error) {
-      logger.warning("Validation failed for create", {
-        error: error.details,
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-        body: req.body,
-      })
-
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: error.details[0].message,
-        details: error.details,
-        requestId,
+        logContext: { details: error.details },
       })
       return
     }
@@ -405,11 +347,7 @@ async function handleCreateItem(req: AuthenticatedRequest, res: Response, reques
 
     const item = await contentItemService.createItem(value as CreateContentItemData, userEmail)
 
-    res.status(201).json({
-      success: true,
-      data: { item },
-      requestId,
-    })
+    sendSuccessResponse(res, { item }, { logger, requestId, statusCode: 201 })
   } catch (error) {
     logger.error("Failed to create content item", {
       error,
@@ -417,14 +355,7 @@ async function handleCreateItem(req: AuthenticatedRequest, res: Response, reques
       userEmail: req.user?.email,
     })
 
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -442,21 +373,10 @@ async function handleUpdateItem(
     const { error, value } = updateSchema.validate(req.body)
 
     if (error) {
-      logger.warning("Validation failed for update", {
-        error: error.details,
+      sendValidationError(res, error.details[0].message, {
+        logger,
         requestId,
-        id,
-        body: req.body,
-      })
-
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: error.details[0].message,
-        details: error.details,
-        requestId,
+        logContext: { details: error.details },
       })
       return
     }
@@ -472,25 +392,14 @@ async function handleUpdateItem(
 
     const item = await contentItemService.updateItem(id, value as UpdateContentItemData, userEmail)
 
-    res.status(200).json({
-      success: true,
-      data: { item },
-      requestId,
-    })
+    sendSuccessResponse(res, { item }, { logger, requestId })
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
 
     if (errorMessage.includes("not found")) {
       logger.warning("Content item not found for update", { id, requestId })
 
-      const err = ERROR_CODES.NOT_FOUND
-      res.status(err.status).json({
-        success: false,
-        error: "NOT_FOUND",
-        errorCode: err.code,
-        message: err.message,
-        requestId,
-      })
+      sendNotFoundError(res, "Content item", { logger, requestId })
       return
     }
 
@@ -501,14 +410,7 @@ async function handleUpdateItem(
       userEmail: req.user?.email,
     })
 
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -541,14 +443,7 @@ async function handleDeleteItem(
     if (errorMessage.includes("not found")) {
       logger.warning("Content item not found for delete", { id, requestId })
 
-      const err = ERROR_CODES.NOT_FOUND
-      res.status(err.status).json({
-        success: false,
-        error: "NOT_FOUND",
-        errorCode: err.code,
-        message: err.message,
-        requestId,
-      })
+      sendNotFoundError(res, "Content item", { logger, requestId })
       return
     }
 
@@ -559,14 +454,7 @@ async function handleDeleteItem(
       userEmail: req.user?.email,
     })
 
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -600,14 +488,7 @@ async function handleDeleteWithChildren(
     if (errorMessage.includes("not found")) {
       logger.warning("Content item not found for cascade delete", { id, requestId })
 
-      const err = ERROR_CODES.NOT_FOUND
-      res.status(err.status).json({
-        success: false,
-        error: "NOT_FOUND",
-        errorCode: err.code,
-        message: err.message,
-        requestId,
-      })
+      sendNotFoundError(res, "Content item", { logger, requestId })
       return
     }
 
@@ -618,14 +499,7 @@ async function handleDeleteWithChildren(
       userEmail: req.user?.email,
     })
 
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
@@ -638,14 +512,7 @@ async function handleReorderItems(req: AuthenticatedRequest, res: Response, requ
     const { items } = req.body
 
     if (!Array.isArray(items)) {
-      const err = ERROR_CODES.VALIDATION_FAILED
-      res.status(err.status).json({
-        success: false,
-        error: "VALIDATION_FAILED",
-        errorCode: err.code,
-        message: "items must be an array",
-        requestId,
-      })
+      sendValidationError(res, "items must be an array", { logger, requestId })
       return
     }
 
@@ -671,14 +538,7 @@ async function handleReorderItems(req: AuthenticatedRequest, res: Response, requ
       userEmail: req.user?.email,
     })
 
-    const err = ERROR_CODES.FIRESTORE_ERROR
-    res.status(err.status).json({
-      success: false,
-      error: "FIRESTORE_ERROR",
-      errorCode: err.code,
-      message: err.message,
-      requestId,
-    })
+    sendInternalError(res, "Database error", error instanceof Error ? error : undefined, { logger, requestId })
   }
 }
 
