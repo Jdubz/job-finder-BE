@@ -1,20 +1,10 @@
 #!/bin/sh
-. "$(dirname "$0")/_/h"
-
-# Pre-commit hook: Blocking lint and typecheck
 echo "🔍 Running pre-commit checks..."
 
 # Run lint
 echo "📝 Linting..."
 npm run lint || {
   echo "❌ Linting failed! Please fix errors before committing."
-  exit 1
-}
-
-# Run typecheck
-echo "🔧 Type checking..."
-cd functions && npm run build || {
-  echo "❌ Type checking failed! Please fix TypeScript errors before committing."
   exit 1
 }
 

@@ -217,7 +217,7 @@ export const PATTERNS = {
   EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
   URL: /^https?:\/\/.+/,
   UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  PHONE: /^\+?[\d\s\-\(\)]+$/,
+  PHONE: /^\+?[\d\s\-()]+$/,
 } as const;
 
 /**

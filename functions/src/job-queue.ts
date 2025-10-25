@@ -14,11 +14,10 @@ import { verifyAuthenticatedEditor, verifyAuthenticatedUser } from "./middleware
 import { logger } from "./utils/logger";
 import { generateRequestId } from "./utils/request-id";
 import { corsHandler } from "./config/cors";
-import { JOB_QUEUE_ERROR_CODES } from "./config/error-codes";
+// import { JOB_QUEUE_ERROR_CODES } from "./config/error-codes";
 import { PACKAGE_VERSION } from "./config/versions";
 import {
   sendSuccessResponse,
-  sendErrorResponse,
   sendValidationError,
   sendAuthError,
   sendNotFoundError,

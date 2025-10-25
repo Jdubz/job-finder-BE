@@ -170,18 +170,18 @@ export function suppressConsole() {
   beforeEach(() => {
     // eslint-disable-next-line no-console
     console.log = jest.fn()
-    // eslint-disable-next-line no-console
+     
     console.error = jest.fn()
-    // eslint-disable-next-line no-console
+     
     console.warn = jest.fn()
   })
 
   afterEach(() => {
     // eslint-disable-next-line no-console
     console.log = originalConsole.log
-    // eslint-disable-next-line no-console
+     
     console.error = originalConsole.error
-    // eslint-disable-next-line no-console
+     
     console.warn = originalConsole.warn
   })
 }

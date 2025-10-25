@@ -44,10 +44,8 @@ import { corsHandler } from "./config/cors"
 import { PACKAGE_VERSION } from "./config/versions"
 import { DATABASE_ID } from "./config/database"
 import {
-  sendSuccessResponse,
   sendErrorResponse,
   sendValidationError,
-  sendAuthError,
   sendNotFoundError,
   sendInternalError,
 } from "./utils/response-helpers"

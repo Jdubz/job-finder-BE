@@ -5,14 +5,14 @@
  * and ensure all components work correctly.
  */
 
-import { describe, it, expect, beforeEach, afterEach, jest, Mock } from "@jest/globals"
+import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals"
 import { manageGenerator } from "../generator"
 import type { Request, Response } from "firebase-functions/v2/https"
-import { GeneratorService } from "../services/generator.service"
-import { ContentItemService } from "../services/content-item.service"
-import { PDFService } from "../services/pdf.service"
-import { StorageService } from "../services/storage.service"
-import { createAIProvider } from "../services/ai-provider.factory"
+// import { GeneratorService } from "../services/generator.service"
+// import { ContentItemService } from "../services/content-item.service"
+// import { PDFService } from "../services/pdf.service"
+// import { StorageService } from "../services/storage.service"
+// import { createAIProvider } from "../services/ai-provider.factory"
 
 // Mock all external dependencies
 jest.mock("../services/generator.service")
