@@ -32,8 +32,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import type { StructuredLogEntry, LogLevel } from '@jsdubzw/job-finder-shared-types';
 
-// Path to centralized log file
-const LOG_FILE = path.resolve(__dirname, '../../../../../../logs/backend.log');
+// Path to service log file
+const LOG_FILE = path.resolve(__dirname, '../../../../logs/backend.log');
 
 // Ensure log directory exists
 const ensureLogDirectory = () => {
