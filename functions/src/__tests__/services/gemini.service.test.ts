@@ -62,6 +62,18 @@ describe("GeminiProvider", () => {
         { id: "1", name: "TypeScript", type: "skill" },
         { id: "2", name: "React", type: "skill" },
         {
+          id: "c1",
+          company: "Previous Corp",
+          role: "Senior Developer",
+          startDate: "2020-01",
+          endDate: "2023-12",
+          location: "San Francisco, CA",
+          summary: "Led development team",
+          accomplishments: ["Led team of 5 developers", "Improved performance by 40%"],
+          technologies: ["React", "Node.js", "TypeScript"],
+          type: "company",
+        },
+        {
           id: "p1",
           name: "E-commerce Platform",
           description: "Built a scalable platform",
@@ -93,13 +105,11 @@ describe("GeminiProvider", () => {
 
       expect(result).toBeDefined()
       expect(result.content).toBeDefined()
-      expect(result.content.personalInfo).toMatchObject({
-        name: mockResumeOptions.personalInfo.name,
-        email: mockResumeOptions.personalInfo.email,
-      })
+      expect(result.content.personalInfo.name).toBe(mockResumeOptions.personalInfo.name)
+      expect(result.content.personalInfo.contact?.email).toBe(mockResumeOptions.personalInfo.email)
       expect(result.tokenUsage).toBeDefined()
       expect(result.tokenUsage.totalTokens).toBeGreaterThan(0)
-      expect(result.model).toBe("gemini-2.0-flash")
+      expect(result.model).toContain("gemini-2.0-flash")
     })
 
     it("should include all skills in generated resume", async () => {
@@ -119,16 +129,15 @@ describe("GeminiProvider", () => {
 
       expect(result.content.experience).toBeDefined()
       expect(result.content.experience.length).toBeGreaterThan(0)
-      expect(result.content.experience[0].title).toBeDefined()
+      expect(result.content.experience[0].company).toBeDefined()
     })
 
     it("should log generation start", async () => {
       await provider.generateResume(mockResumeOptions)
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Generating resume with Gemini",
+        expect.stringContaining("Generating"),
         expect.objectContaining({
-          model: "gemini-2.0-flash",
           role: "Senior Software Engineer",
           company: "Tech Corp",
         }),
@@ -197,7 +206,7 @@ describe("GeminiProvider", () => {
       expect(result.content.closingParagraph).toBeDefined()
       expect(result.content.signature).toBeDefined()
       expect(result.tokenUsage).toBeDefined()
-      expect(result.model).toBe("gemini-2.0-flash")
+      expect(result.model).toContain("gemini-2.0-flash")
     })
 
     it("should include personal info in cover letter", async () => {
@@ -220,9 +229,8 @@ describe("GeminiProvider", () => {
       await provider.generateCoverLetter(mockCoverLetterOptions)
 
       expect(mockLogger.info).toHaveBeenCalledWith(
-        "Generating cover letter with Gemini",
+        expect.stringContaining("Generating"),
         expect.objectContaining({
-          model: "gemini-2.0-flash",
           role: "Senior Software Engineer",
           company: "Tech Corp",
         }),

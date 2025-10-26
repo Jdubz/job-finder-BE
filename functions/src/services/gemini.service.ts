@@ -551,32 +551,32 @@ Generate a compelling cover letter that showcases the candidate's qualifications
    */
   private generateMockResume(options: GenerateResumeOptions): AIResumeGenerationResult {
     this.logger.info("🎭 Generating MOCK resume with Gemini (no API call)", {
-      role: options.job.role,
-      company: options.job.company,
+      role: options.job?.role || "Software Engineer",
+      company: options.job?.company || "Unknown Company",
     })
 
     const mockContent: ResumeContent = {
       personalInfo: {
-        name: options.personalInfo.name,
-        title: `${options.job.role}`,
-        summary: `Experienced software engineer with a proven track record of building scalable systems. Passionate about ${options.job.role.toLowerCase()} work.`,
+        name: options.personalInfo?.name || "John Doe",
+        title: `${options.job?.role || "Software Engineer"}`,
+        summary: `Experienced software engineer with a proven track record of building scalable systems. Passionate about ${(options.job?.role || "software engineering").toLowerCase()} work.`,
         contact: {
-          email: options.personalInfo.email,
-          location: options.personalInfo.location || "Portland, OR",
-          website: options.personalInfo.website || "",
-          linkedin: options.personalInfo.linkedin || "",
-          github: options.personalInfo.github || "",
+          email: options.personalInfo?.email || "email@example.com",
+          location: options.personalInfo?.location || "Portland, OR",
+          website: options.personalInfo?.website || "",
+          linkedin: options.personalInfo?.linkedin || "",
+          github: options.personalInfo?.github || "",
         },
       },
-      professionalSummary: `Highly skilled ${options.job.role} with extensive experience in software development and technical leadership.`,
-      experience: options.contentItems
+      professionalSummary: `Highly skilled ${options.job?.role || "Software Engineer"} with extensive experience in software development and technical leadership.`,
+      experience: (options.contentItems || [])
         .filter((item) => item.type === "company")
         .slice(0, 3)
         .map((item) => {
           const company = item as import("../types/content-item.types").CompanyItem
           return {
             company: company.company,
-            role: company.role || options.job.role,
+            role: company.role || options.job?.role || "Software Engineer",
             location: company.location || "Remote",
             startDate: company.startDate,
             endDate: company.endDate || null,
@@ -621,19 +621,19 @@ Generate a compelling cover letter that showcases the candidate's qualifications
    */
   private generateMockCoverLetter(options: GenerateCoverLetterOptions): AICoverLetterGenerationResult {
     this.logger.info("🎭 Generating MOCK cover letter with Gemini (no API call)", {
-      role: options.job.role,
-      company: options.job.company,
+      role: options.job?.role || "Software Engineer",
+      company: options.job?.company || "Unknown Company",
     })
 
     const mockContent: CoverLetterContent = {
       greeting: "Dear Hiring Manager,",
-      openingParagraph: `I am writing to express my strong interest in the ${options.job.role} position at ${options.job.company}.`,
+      openingParagraph: `I am writing to express my strong interest in the ${options.job?.role || "Software Engineer"} position at ${options.job?.company || "your company"}.`,
       bodyParagraphs: [
         "Throughout my career, I have consistently delivered high-impact technical solutions.",
-        `What excites me most about ${options.job.company} is your commitment to innovation and technical excellence.`,
+        `What excites me most about ${options.job?.company || "your company"} is your commitment to innovation and technical excellence.`,
       ],
-      closingParagraph: `I would welcome the opportunity to discuss how my experience could contribute to ${options.job.company}'s continued success.`,
-      signature: `Sincerely,\n${options.personalInfo.name}`,
+      closingParagraph: `I would welcome the opportunity to discuss how my experience could contribute to ${options.job?.company || "your company"}'s continued success.`,
+      signature: `Sincerely,\n${options.personalInfo?.name || "John Doe"}`,
     }
 
     const mockTokenUsage: TokenUsage = {

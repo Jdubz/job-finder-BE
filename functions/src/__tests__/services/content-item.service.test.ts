@@ -184,6 +184,7 @@ describe("ContentItemService", () => {
           data: () => ({
             ...existingItem,
             title: "Advanced JavaScript",
+            updatedBy: "user@example.com",
           }),
         })
 

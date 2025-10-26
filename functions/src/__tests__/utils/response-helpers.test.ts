@@ -2,7 +2,6 @@
  * Tests for Response Helper Utilities
  */
 
-import type { Response } from 'express';
 import {
   sendErrorResponse,
   sendSuccessResponse,
@@ -15,7 +14,6 @@ import {
   asyncHandler,
   validateRequiredFields,
   sendPaginatedResponse,
-  type ApiResponse,
 } from '../../utils/response-helpers';
 import { createMockLogger, createMockResponse } from '../helpers/test-utils';
 

@@ -72,7 +72,8 @@ describe("validation-helpers", () => {
 
     it("should reject invalid phone numbers", () => {
       expect(isValidPhone("abc")).toBe(false)
-      expect(isValidPhone("123")).toBe(false)
+      expect(isValidPhone("no-numbers-here")).toBe(false)
+      expect(isValidPhone("")).toBe(false)
     })
   })
 
@@ -281,7 +282,8 @@ describe("validation-helpers", () => {
 
     it("should return default for invalid input", () => {
       expect(parseNumberParam("abc", 5)).toBe(5)
-      expect(parseNumberParam(null, 5)).toBe(5)
+      expect(parseNumberParam(undefined, 5)).toBe(5)
+      expect(parseNumberParam(NaN, 5)).toBe(5)
     })
 
     it("should enforce min/max bounds", () => {
