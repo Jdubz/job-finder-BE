@@ -1,58 +1,59 @@
-import { describe, it, expect, beforeEach, vi, Mock } from "vitest"
+import { describe, it, expect, beforeEach } from "@jest/globals"
 import { ContentItemService } from "../../services/content-item.service"
 import { Timestamp } from "@google-cloud/firestore"
 import type { CreateContentItemData, UpdateContentItemData } from "../../types/content-item.types"
 
-vi.mock("../../config/firestore", () => ({
-  createFirestoreInstance: vi.fn(),
+// Create mock Firestore instance
+const mockFirestore: any = {
+  collection: jest.fn(),
+}
+
+// Mock the firestore config
+jest.mock("../../config/firestore", () => ({
+  createFirestoreInstance: jest.fn(() => mockFirestore),
 }))
 
-vi.mock("../../utils/logger", () => ({
+jest.mock("../../utils/logger", () => ({
   createDefaultLogger: () => ({
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-    debug: vi.fn(),
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
   }),
 }))
 
 describe("ContentItemService", () => {
   let service: ContentItemService
-  let mockDb: any
   let mockCollection: any
   let mockDoc: any
   let mockQuery: any
 
   beforeEach(() => {
+    jest.clearAllMocks()
+
     mockDoc = {
-      get: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-      set: vi.fn(),
+      get: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      set: jest.fn(),
     }
 
     mockQuery = {
-      where: vi.fn().mockReturnThis(),
-      orderBy: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockReturnThis(),
-      get: vi.fn(),
+      where: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      get: jest.fn(),
     }
 
     mockCollection = {
-      doc: vi.fn().mockReturnValue(mockDoc),
-      add: vi.fn(),
-      where: vi.fn().mockReturnValue(mockQuery),
-      orderBy: vi.fn().mockReturnValue(mockQuery),
-      get: vi.fn(),
+      doc: jest.fn().mockReturnValue(mockDoc),
+      add: jest.fn(),
+      where: jest.fn().mockReturnValue(mockQuery),
+      orderBy: jest.fn().mockReturnValue(mockQuery),
+      get: jest.fn(),
     }
 
-    mockDb = {
-      collection: vi.fn().mockReturnValue(mockCollection),
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { createFirestoreInstance } = require("../../config/firestore")
-    ;(createFirestoreInstance as Mock).mockReturnValue(mockDb)
+    mockFirestore.collection.mockReturnValue(mockCollection)
 
     service = new ContentItemService()
   })

@@ -1,18 +1,18 @@
-import { describe, it, expect, beforeEach, vi } from "vitest"
+import { describe, it, expect, beforeEach } from "@jest/globals"
 import { StorageService } from "../../services/storage.service"
 
-vi.mock("@google-cloud/storage", () => {
+jest.mock("@google-cloud/storage", () => {
   const mockFile = {
-    save: vi.fn(),
+    save: jest.fn(),
   }
 
   const mockBucket = {
-    file: vi.fn().mockReturnValue(mockFile),
+    file: jest.fn().mockReturnValue(mockFile),
   }
 
   return {
-    Storage: vi.fn().mockImplementation(() => ({
-      bucket: vi.fn().mockReturnValue(mockBucket),
+    Storage: jest.fn().mockImplementation(() => ({
+      bucket: jest.fn().mockReturnValue(mockBucket),
     })),
   }
 })
@@ -23,9 +23,9 @@ describe("StorageService", () => {
 
   beforeEach(() => {
     mockLogger = {
-      info: vi.fn(),
-      warning: vi.fn(),
-      error: vi.fn(),
+      info: jest.fn(),
+      warning: jest.fn(),
+      error: jest.fn(),
     }
 
     // Reset environment
