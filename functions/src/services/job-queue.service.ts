@@ -155,7 +155,7 @@ export class JobQueueService {
    * Creates a queue item with type "scrape" and the provided configuration
    */
   async submitScrape(
-    userId: string,
+    userId: string | null,
     scrapeConfig?: ScrapeConfig
   ): Promise<QueueItem & { id: string }> {
     try {
@@ -200,29 +200,6 @@ export class JobQueueService {
         config: scrapeConfig,
       });
       throw error;
-    }
-  }
-
-  /**
-   * Check if user has a pending scrape request
-   *
-   * Returns true if user has any queue item with type "scrape" and status "pending" or "processing"
-   */
-  async hasPendingScrape(userId: string): Promise<boolean> {
-    try {
-      const snapshot = await this.db
-        .collection(this.queueCollection)
-        .where("submitted_by", "==", userId)
-        .where("type", "==", "scrape")
-        .where("status", "in", ["pending", "processing"])
-        .limit(1)
-        .get();
-
-      return !snapshot.empty;
-    } catch (error) {
-      this.logger.error("Failed to check for pending scrape", { error, userId });
-      // Return false on error to allow submission (fail open)
-      return false;
     }
   }
 

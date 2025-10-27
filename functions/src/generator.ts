@@ -36,7 +36,7 @@ import {
   startStep,
   completeStep,
 } from "./utils/generation-steps"
-import { verifyAuthenticatedEditor, checkOptionalAuth, type AuthenticatedRequest } from "./middleware/auth.middleware"
+import { verifyAuthenticatedUser, checkOptionalAuth, type AuthenticatedRequest } from "./middleware/auth.middleware"
 import { generatorRateLimiter, generatorEditorRateLimiter } from "./middleware/rate-limit.middleware"
 import type { GenerationType, GeneratorResponse, GeneratorRequest, GenerationStep } from "./types/generator.types"
 import { timestampToMillis } from "./types/generator.types"
@@ -269,7 +269,7 @@ const handleGeneratorRequest = async (req: Request, res: Response): Promise<void
 
           // All other routes require authentication
           await new Promise<void>((resolveAuth, rejectAuth) => {
-            verifyAuthenticatedEditor(logger)(req as AuthenticatedRequest, res, (err) => {
+            verifyAuthenticatedUser(logger)(req as AuthenticatedRequest, res, (err) => {
               if (err) rejectAuth(err)
               else resolveAuth()
             })

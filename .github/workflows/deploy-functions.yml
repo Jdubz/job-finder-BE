@@ -163,7 +163,7 @@ jobs:
             entry_point: manageGenerator
             memory: 1024Mi
             max_instances: 50
-            secrets: OPENAI_API_KEY=openai-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=google-genai-key:latest
+            secrets: OPENAI_API_KEY=openai-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest
             changed: ${{ needs.detect-changes.outputs.generator }}
 
     steps:
@@ -283,7 +283,7 @@ jobs:
             entry_point: manageGenerator
             memory: 1024Mi
             max_instances: 50
-            secrets: OPENAI_API_KEY=openai-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=google-genai-key:latest
+            secrets: OPENAI_API_KEY=openai-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=gemini-api-key:latest
             changed: ${{ needs.detect-changes.outputs.generator }}
 
     steps:

@@ -29,18 +29,45 @@
  */
 
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import type { StructuredLogEntry, LogLevel } from '@jsdubzw/job-finder-shared-types';
 
-// Path to service log file
-const LOG_FILE = path.resolve(__dirname, '../../../../logs/backend.log');
+const PRIMARY_LOG_DIR = path.resolve(process.cwd(), 'logs');
+const FALLBACK_LOG_DIR = path.join(os.tmpdir(), 'job-finder-logs');
 
-// Ensure log directory exists
-const ensureLogDirectory = () => {
-  const logDir = path.dirname(LOG_FILE);
-  if (!fs.existsSync(logDir)) {
-    fs.mkdirSync(logDir, { recursive: true });
+let resolvedLogFile: string | null = null;
+let fileLoggingEnabled = true;
+let hasLoggedInitError = false;
+
+const initialiseLogFile = () => {
+  if (resolvedLogFile || !fileLoggingEnabled) {
+    return;
   }
+
+  const candidateDirs = [PRIMARY_LOG_DIR, FALLBACK_LOG_DIR];
+
+  for (const candidate of candidateDirs) {
+    try {
+      if (!fs.existsSync(candidate)) {
+        fs.mkdirSync(candidate, { recursive: true });
+      }
+      resolvedLogFile = path.join(candidate, 'backend.log');
+      return;
+    } catch (error) {
+      const err = error as NodeJS.ErrnoException;
+      if (!hasLoggedInitError) {
+        hasLoggedInitError = true;
+        console.warn(
+          '[local-logger] Failed to initialise log directory',
+          { candidate, code: err?.code, message: err?.message }
+        );
+      }
+    }
+  }
+
+  // Disable file logging if no candidate directories worked
+  fileLoggingEnabled = false;
 };
 
 /**
@@ -92,8 +119,7 @@ export interface LocalLogger {
  * Create a local file-based logger instance
  */
 export function createLocalLogger(): LocalLogger {
-  // Ensure log directory exists
-  ensureLogDirectory();
+  initialiseLogFile();
 
   /**
    * Write a structured log entry to file
@@ -119,13 +145,28 @@ export function createLocalLogger(): LocalLogger {
 
     // Write to file (synchronous for simplicity in dev)
     const logLine = JSON.stringify(logOutput) + '\n';
-    try {
-      fs.appendFileSync(LOG_FILE, logLine);
-    } catch (err) {
-      // Fallback to console if file write fails
-      console.error('Failed to write to log file:', err);
-      console.log(logLine);
+    if (fileLoggingEnabled && resolvedLogFile) {
+      try {
+        fs.appendFileSync(resolvedLogFile, logLine);
+        return;
+      } catch (err) {
+        const error = err as NodeJS.ErrnoException;
+        // Disable further file writes on persistent failures
+        if (!hasLoggedInitError) {
+          hasLoggedInitError = true;
+          console.warn('[local-logger] Failed to write to log file', {
+            code: error?.code,
+            message: error?.message,
+            path: resolvedLogFile,
+          });
+        }
+        fileLoggingEnabled = false;
+        resolvedLogFile = null;
+      }
     }
+
+    // Fallback to stdout when file logging is unavailable
+    console.log(logLine);
   }
 
   return {
