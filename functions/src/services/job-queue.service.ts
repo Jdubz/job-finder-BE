@@ -482,7 +482,7 @@ export class JobQueueService {
       const domain = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
 
       // Check excluded domains
-      if (stopList.excludedDomains.some((d) => domain.includes(d.toLowerCase()))) {
+      if (stopList.excludedDomains.some((d: string) => domain.includes(d.toLowerCase()))) {
         result.allowed = false;
         result.reason = "domain";
         return result;
@@ -491,7 +491,7 @@ export class JobQueueService {
       // Check excluded companies
       const lowerCompanyName = companyName.toLowerCase();
       if (
-        stopList.excludedCompanies.some((company) =>
+        stopList.excludedCompanies.some((company: string) =>
           lowerCompanyName.includes(company.toLowerCase())
         )
       ) {
@@ -502,7 +502,7 @@ export class JobQueueService {
 
       // Check excluded keywords
       if (
-        stopList.excludedKeywords.some((keyword) =>
+        stopList.excludedKeywords.some((keyword: string) =>
           lowerCompanyName.includes(keyword.toLowerCase())
         )
       ) {

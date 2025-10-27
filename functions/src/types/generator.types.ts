@@ -1,15 +1,71 @@
 /**
- * Type definitions for the AI Resume Generator
+ * Type definitions for the AI Resume Generator (BE-specific)
  *
- * This file contains all TypeScript interfaces for:
- * - Generator defaults (personal settings)
- * - Generation requests
- * - Generation responses
- * - OpenAI structured outputs (resume and cover letter content)
+ * This file contains BE-specific types only.
+ * Shared types are imported from @jsdubzw/job-finder-shared-types.
  */
 
-import { Timestamp } from "@google-cloud/firestore"
 import type { ContentItem } from "./content-item.types"
+
+// Import shared types from the shared-types package
+import type {
+  GenerationType,
+  AIProviderType,
+  TokenUsage,
+  JobMatchData,
+  GenerationStepStatus,
+  GenerationStep,
+  GeneratorRequest,
+  GeneratorResponse,
+  ResumeContent,
+  CoverLetterContent,
+  GenerateDocumentsRequest,
+  GenerateDocumentsResponse,
+  PersonalInfoDocument,
+  UpdatePersonalInfoData,
+} from "@jsdubzw/job-finder-shared-types"
+
+// Re-export shared types for backward compatibility
+export type {
+  GenerationType,
+  AIProviderType,
+  TokenUsage,
+  JobMatchData,
+  GenerationStepStatus,
+  GenerationStep,
+  GeneratorRequest,
+  GeneratorResponse,
+  ResumeContent,
+  CoverLetterContent,
+  GenerateDocumentsRequest,
+  GenerateDocumentsResponse,
+  UpdatePersonalInfoData,
+}
+
+// Type alias for PersonalInfo (uses PersonalInfoDocument from shared-types)
+export type PersonalInfo = PersonalInfoDocument
+
+// =============================================================================
+// BE-SPECIFIC TYPES BELOW
+// =============================================================================
+
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+/**
+ * Convert TimestampLike to milliseconds
+ * Handles both Date objects and Firestore Timestamps
+ */
+export function timestampToMillis(timestamp: Date | { toMillis(): number }): number {
+  if (timestamp instanceof Date) {
+    return timestamp.getTime()
+  }
+  if (timestamp && typeof timestamp.toMillis === "function") {
+    return timestamp.toMillis()
+  }
+  throw new Error("Invalid timestamp: must be Date or Firestore Timestamp")
+}
 
 // =============================================================================
 // Logging
@@ -22,31 +78,11 @@ export interface SimpleLogger {
 }
 
 // =============================================================================
-// Generation Type
-// =============================================================================
-
-export type GenerationType = "resume" | "coverLetter" | "both"
-
-// =============================================================================
-// AI Provider Types
+// AI Provider Service Types (BE-specific)
 // =============================================================================
 
 /**
- * AI Provider Type (for selecting between OpenAI, Gemini, etc.)
- */
-export type AIProviderType = "openai" | "gemini"
-
-/**
- * Token usage for AI generation
- */
-export interface TokenUsage {
-  promptTokens: number
-  completionTokens: number
-  totalTokens: number
-}
-
-/**
- * Result from AI resume generation
+ * Result from AI resume generation (BE service result)
  */
 export interface AIResumeGenerationResult {
   content: ResumeContent
@@ -55,7 +91,7 @@ export interface AIResumeGenerationResult {
 }
 
 /**
- * Result from AI cover letter generation
+ * Result from AI cover letter generation (BE service result)
  */
 export interface AICoverLetterGenerationResult {
   content: CoverLetterContent
@@ -64,30 +100,7 @@ export interface AICoverLetterGenerationResult {
 }
 
 /**
- * Job Match Data for AI prompt customization
- */
-export interface JobMatchData {
-  matchScore?: number
-  matchedSkills?: string[]
-  missingSkills?: string[]
-  keyStrengths?: string[]
-  potentialConcerns?: string[]
-  keywords?: string[]
-  customizationRecommendations?: {
-    skills_to_emphasize?: string[]
-    resume_focus?: string[]
-    cover_letter_points?: string[]
-  }
-  resumeIntakeData?: {
-    target_summary?: string
-    skills_priority?: string[]
-    keywords_to_include?: string[]
-    achievement_angles?: string[]
-  }
-}
-
-/**
- * Options for generating a resume with AI
+ * Options for generating a resume with AI (BE service options)
  */
 export interface GenerateResumeOptions {
   personalInfo: {
@@ -115,7 +128,7 @@ export interface GenerateResumeOptions {
 }
 
 /**
- * Options for generating a cover letter with AI
+ * Options for generating a cover letter with AI (BE service options)
  */
 export interface GenerateCoverLetterOptions {
   personalInfo: {
@@ -137,7 +150,7 @@ export interface GenerateCoverLetterOptions {
 }
 
 /**
- * AI Provider Interface
+ * AI Provider Interface (BE service abstraction)
  *
  * Abstracts the AI provider (OpenAI, Gemini, etc.) to enable:
  * - Cost optimization (switch to cheaper provider)
@@ -181,191 +194,15 @@ export interface AIProvider {
 }
 
 // =============================================================================
-// Personal Info (Personal Information Document)
+// Helper Types for BE-specific operations
 // =============================================================================
 
-export interface PersonalInfo {
-  // Document identification
-  id: "personal-info"
-  type: "personal-info"
-
-  // Personal Information (name and email required, others optional)
-  name: string
-  email: string
-  phone?: string
-  location?: string
-
-  // Online Presence
-  website?: string
-  github?: string
-  linkedin?: string
-
-  // Visual Branding
-  avatar?: string // URL or GCS path to profile photo
-  logo?: string // URL or GCS path to personal logo
-  accentColor: string // Hex color for resume styling (always "modern" style)
-
-  // AI Prompts
-  aiPrompts?: {
-    resume: {
-      systemPrompt: string
-      userPromptTemplate: string
-    }
-    coverLetter: {
-      systemPrompt: string
-      userPromptTemplate: string
-    }
-  }
-
-  // Metadata
-  createdAt: Timestamp
-  updatedAt: Timestamp
-  updatedBy?: string // Email of last editor
-}
-
-export interface UpdatePersonalInfoData {
-  name?: string
-  email?: string
-  phone?: string
-  location?: string
-  website?: string
-  github?: string
-  linkedin?: string
-  avatar?: string
-  logo?: string
-  accentColor?: string
-  aiPrompts?: {
-    resume?: {
-      systemPrompt?: string
-      userPromptTemplate?: string
-    }
-    coverLetter?: {
-      systemPrompt?: string
-      userPromptTemplate?: string
-    }
-  }
-}
-
-// Deprecated type aliases for backward compatibility during migration
-/** @deprecated Use PersonalInfo instead */
-export type GeneratorDefaults = PersonalInfo
-/** @deprecated Use UpdatePersonalInfoData instead */
-export type UpdateGeneratorDefaultsData = UpdatePersonalInfoData
-
-// =============================================================================
-// Generation Progress Steps
-// =============================================================================
-
-export type GenerationStepStatus = "pending" | "in_progress" | "completed" | "failed" | "skipped"
-
-export interface GenerationStep {
-  id: string // Unique step identifier
-  name: string // Display name for the step
-  description: string // Detailed description
-  status: GenerationStepStatus
-  startedAt?: Timestamp
-  completedAt?: Timestamp
-  duration?: number // milliseconds
-
-  // Optional result data (e.g., PDF URL when that step completes)
-  result?: {
-    resumeUrl?: string
-    coverLetterUrl?: string
-    [key: string]: unknown
-  }
-
-  // Error info if failed
-  error?: {
-    message: string
-    code?: string
-  }
-}
-
-// =============================================================================
-// Generator Request (Generation Request Document)
-// =============================================================================
-
-export interface GeneratorRequest {
-  // Document identification
-  id: string // "resume-generator-request-{timestamp}-{randomId}"
-  type: "request"
-
-  // Generation Options (same for editors and viewers)
-  generateType: GenerationType
-
-  // AI Provider Selection
-  provider: AIProviderType // Which AI service to use (openai or gemini)
-
-  // Snapshot of personal info at request time
-  personalInfo: {
-    name: string
-    email: string
-    phone?: string
-    location?: string
-    website?: string
-    github?: string
-    linkedin?: string
-    avatar?: string
-    logo?: string
-    accentColor: string
-  }
-
-  // Job Application Details
-  job: {
-    role: string // Required
-    company: string // Required
-    companyWebsite?: string
-    jobDescriptionUrl?: string
-    jobDescriptionText?: string
-  }
-
-  // Job Match Reference (for tracking which job-match this generation is for)
-  jobMatchId?: string
-
-  // Generation Preferences
-  preferences?: {
-    emphasize?: string[] // Keywords to emphasize
-  }
-
-  // Content Data Snapshot (all content items at time of request)
-  contentData: {
-    items: ContentItem[]
-  }
-
-  // Request Status
-  status: "pending" | "processing" | "completed" | "failed"
-
-  // Step-by-step Progress Tracking
-  steps?: GenerationStep[]
-
-  // Intermediate Results (stored after each step for retry capability)
-  intermediateResults?: {
-    // AI-generated content (from generate_resume / generate_cover_letter steps)
-    resumeContent?: ResumeContent
-    coverLetterContent?: CoverLetterContent
-
-    // Token usage tracking
-    resumeTokenUsage?: TokenUsage
-    coverLetterTokenUsage?: TokenUsage
-
-    // Model used for generation
-    model?: string
-  }
-
-  // Access Control
-  access: {
-    viewerSessionId?: string // For public users to retrieve their own docs
-    isPublic: boolean // true for viewers, false for editors
-  }
-
-  // Timestamps & Metadata
-  createdAt: Timestamp
-  createdBy: string | null // Email if editor, null if anonymous viewer
-}
-
+/**
+ * Data for creating a generator request (BE-specific)
+ */
 export interface CreateGeneratorRequestData {
   generateType: GenerationType
-  provider?: AIProviderType // Optional, defaults to 'gemini' if not provided
+  provider?: AIProviderType // Optional, defaults to 'openai' if not provided
   job: {
     role: string
     company: string
@@ -376,196 +213,5 @@ export interface CreateGeneratorRequestData {
   preferences?: {
     style?: string
     emphasize?: string[]
-  }
-}
-
-// =============================================================================
-// Generator Response (Generation Response Document)
-// =============================================================================
-
-export interface GeneratorResponse {
-  // Document identification
-  id: string // "resume-generator-response-{timestamp}-{randomId}" (matches request)
-  type: "response"
-
-  // Reference to request document
-  requestId: string
-
-  // Generation Results
-  result: {
-    success: boolean
-
-    // Generated Content (OpenAI structured outputs)
-    resume?: ResumeContent
-    coverLetter?: CoverLetterContent
-
-    // Error Information (if failed)
-    error?: {
-      message: string
-      code?: string
-      stage?:
-        | "fetch_defaults"
-        | "fetch_experience"
-        | "openai_resume"
-        | "openai_cover_letter"
-        | "openai_generation"
-        | "gemini_generation"
-        | "pdf_generation"
-        | "gcs_upload"
-      details?: unknown
-    }
-  }
-
-  // Generated Files in GCS (Phase 2)
-  files?: {
-    resume?: {
-      gcsPath: string
-      signedUrl?: string
-      signedUrlExpiry?: Timestamp
-      size?: number
-      storageClass?: "STANDARD" | "COLDLINE"
-    }
-    coverLetter?: {
-      gcsPath: string
-      signedUrl?: string
-      signedUrlExpiry?: Timestamp
-      size?: number
-      storageClass?: "STANDARD" | "COLDLINE"
-    }
-  }
-
-  // Performance Metrics
-  metrics: {
-    durationMs: number
-
-    // Token usage (if OpenAI was called)
-    tokenUsage?: {
-      resumePrompt?: number
-      resumeCompletion?: number
-      coverLetterPrompt?: number
-      coverLetterCompletion?: number
-      total: number
-    }
-
-    // Cost calculation
-    costUsd?: number
-
-    // Model information
-    model: string
-  }
-
-  // Timestamps
-  createdAt: Timestamp
-  updatedAt?: Timestamp
-}
-
-// =============================================================================
-// OpenAI Structured Output Types
-// =============================================================================
-
-/**
- * Resume Content (OpenAI structured output)
- */
-export interface ResumeContent {
-  personalInfo: {
-    name: string
-    title: string
-    summary: string
-    contact: {
-      email: string
-      location?: string
-      website?: string
-      linkedin?: string
-      github?: string
-    }
-  }
-  professionalSummary: string
-  experience: Array<{
-    company: string
-    role: string
-    location?: string
-    startDate: string
-    endDate: string | null
-    highlights: string[]
-    technologies?: string[]
-  }>
-  skills?: Array<{
-    category: string
-    items: string[]
-  }>
-  education?: Array<{
-    institution: string
-    degree: string
-    field?: string
-    startDate?: string
-    endDate?: string
-  }>
-}
-
-/**
- * Cover Letter Content (OpenAI structured output)
- */
-export interface CoverLetterContent {
-  greeting: string
-  openingParagraph: string
-  bodyParagraphs: string[]
-  closingParagraph: string
-  signature: string
-}
-
-// =============================================================================
-// Helper Types for API Requests/Responses
-// =============================================================================
-
-/**
- * Request payload for document generation (from frontend)
- */
-export interface GenerateDocumentsRequest {
-  generateType: GenerationType
-  provider?: AIProviderType // Optional, defaults to 'gemini' if not provided
-  job: {
-    role: string
-    company: string
-    companyWebsite?: string
-    jobDescriptionUrl?: string
-    jobDescriptionText?: string
-  }
-  preferences?: {
-    style?: string
-    emphasize?: string[]
-  }
-}
-
-/**
- * Response payload for document generation (to frontend)
- */
-export interface GenerateDocumentsResponse {
-  requestId: string
-  responseId: string
-  success: boolean
-
-  // Download URLs (Phase 2 - for now return PDFs directly)
-  resumeUrl?: string
-  coverLetterUrl?: string
-
-  // Metadata
-  metadata: {
-    generatedAt: string
-    role: string
-    company: string
-    generateType: GenerationType
-    tokenUsage?: {
-      total: number
-    }
-    costUsd?: number
-    model: string
-    durationMs: number
-  }
-
-  // Error (if failed)
-  error?: {
-    message: string
-    code?: string
-    stage?: string
   }
 }

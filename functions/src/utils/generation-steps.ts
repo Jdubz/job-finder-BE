@@ -8,6 +8,7 @@
 
 import { Timestamp } from "@google-cloud/firestore"
 import type { GenerationStep, GenerationType } from "../types/generator.types"
+import { timestampToMillis } from "../types/generator.types"
 
 /**
  * Create initial step list based on generation type
@@ -100,7 +101,7 @@ export function updateStep(
 
       // Calculate duration if we have both timestamps
       if (updatedStep.startedAt && updatedStep.completedAt) {
-        updatedStep.duration = updatedStep.completedAt.toMillis() - updatedStep.startedAt.toMillis()
+        updatedStep.duration = timestampToMillis(updatedStep.completedAt) - timestampToMillis(updatedStep.startedAt)
       }
     }
 
