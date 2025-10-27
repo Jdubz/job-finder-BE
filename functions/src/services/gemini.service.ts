@@ -338,7 +338,7 @@ ${
   jm.customizationRecommendations
     ? `CUSTOMIZATION RECOMMENDATIONS:
 ${jm.customizationRecommendations.skills_to_emphasize && jm.customizationRecommendations.skills_to_emphasize.length > 0 ? `- Skills to Emphasize: ${jm.customizationRecommendations.skills_to_emphasize.join(", ")}` : ""}
-${jm.customizationRecommendations.resume_focus && jm.customizationRecommendations.resume_focus.length > 0 ? `- Resume Focus Areas:\n${jm.customizationRecommendations.resume_focus.map((f) => `  * ${f}`).join("\n")}` : ""}
+${jm.customizationRecommendations.resume_focus && jm.customizationRecommendations.resume_focus.length > 0 ? `- Resume Focus Areas:\n${jm.customizationRecommendations.resume_focus.map((f: string) => `  * ${f}`).join("\n")}` : ""}
 `
     : ""
 }
@@ -348,7 +348,7 @@ ${
 ${jm.resumeIntakeData.target_summary ? `- Target Summary Angle: ${jm.resumeIntakeData.target_summary}` : ""}
 ${jm.resumeIntakeData.skills_priority && jm.resumeIntakeData.skills_priority.length > 0 ? `- Skills Priority Order: ${jm.resumeIntakeData.skills_priority.join(", ")}` : ""}
 ${jm.resumeIntakeData.keywords_to_include && jm.resumeIntakeData.keywords_to_include.length > 0 ? `- Keywords to Include: ${jm.resumeIntakeData.keywords_to_include.join(", ")}` : ""}
-${jm.resumeIntakeData.achievement_angles && jm.resumeIntakeData.achievement_angles.length > 0 ? `- Achievement Angles:\n${jm.resumeIntakeData.achievement_angles.map((a) => `  * ${a}`).join("\n")}` : ""}
+${jm.resumeIntakeData.achievement_angles && jm.resumeIntakeData.achievement_angles.length > 0 ? `- Achievement Angles:\n${jm.resumeIntakeData.achievement_angles.map((a: string) => `  * ${a}`).join("\n")}` : ""}
 `
     : ""
 }
@@ -505,12 +505,12 @@ ${jm.keyStrengths && jm.keyStrengths.length > 0 ? `- Key Strengths to Emphasize:
 ${jm.potentialConcerns && jm.potentialConcerns.length > 0 ? `- Address These Potential Gaps: ${jm.potentialConcerns.join("; ")}` : ""}
 ${
   jm.customizationRecommendations?.cover_letter_points && jm.customizationRecommendations.cover_letter_points.length > 0
-    ? `- Recommended Cover Letter Points:\n${jm.customizationRecommendations.cover_letter_points.map((p) => `  * ${p}`).join("\n")}`
+    ? `- Recommended Cover Letter Points:\n${jm.customizationRecommendations.cover_letter_points.map((p: string) => `  * ${p}`).join("\n")}`
     : ""
 }
 ${
   jm.resumeIntakeData?.achievement_angles && jm.resumeIntakeData.achievement_angles.length > 0
-    ? `- Achievement Angles to Highlight:\n${jm.resumeIntakeData.achievement_angles.map((a) => `  * ${a}`).join("\n")}`
+    ? `- Achievement Angles to Highlight:\n${jm.resumeIntakeData.achievement_angles.map((a: string) => `  * ${a}`).join("\n")}`
     : ""
 }
 

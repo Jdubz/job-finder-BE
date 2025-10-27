@@ -38,7 +38,7 @@ import {
 } from "./utils/generation-steps"
 import { verifyAuthenticatedEditor, checkOptionalAuth, type AuthenticatedRequest } from "./middleware/auth.middleware"
 import { generatorRateLimiter, generatorEditorRateLimiter } from "./middleware/rate-limit.middleware"
-import type { GenerationType, GeneratorResponse, GeneratorRequest } from "./types/generator.types"
+import type { GenerationType, GeneratorResponse, GeneratorRequest, GenerationStep } from "./types/generator.types"
 import { timestampToMillis } from "./types/generator.types"
 import { logger } from "./utils/logger"
 import { generateRequestId } from "./utils/request-id"
@@ -850,7 +850,7 @@ async function handleExecuteStep(req: Request, res: Response, requestId: string)
     }
 
     // Find next pending step
-    const nextStep = request.steps?.find((s) => s.status === "pending")
+    const nextStep = request.steps?.find((s: GenerationStep) => s.status === "pending")
     if (!nextStep) {
       // All steps complete
       res.status(200).json({
@@ -906,7 +906,7 @@ async function handleExecuteStep(req: Request, res: Response, requestId: string)
 
     // Get updated request to find next step and extract URLs
     const updatedRequest = await generatorService.getRequest(generationRequestId)
-    const nextPendingStep = updatedRequest?.steps?.find((s) => s.status === "pending")
+    const nextPendingStep = updatedRequest?.steps?.find((s: GenerationStep) => s.status === "pending")
 
     // If no more pending steps, mark request as completed
     if (!nextPendingStep) {
