@@ -200,7 +200,7 @@ export function createCloudLogger(
       }
     } = {
       severity: getSeverity(level),
-      labels: labels as Record<string, string>,
+      labels: labels as unknown as Record<string, string>,
       resource: {
         type: 'cloud_function',
         labels: {
