@@ -9,6 +9,7 @@
  * - Mock mode functionality
  */
 
+import { Timestamp } from "@google-cloud/firestore"
 import { GeminiProvider } from "../../services/gemini.service"
 import type {
   GenerateResumeOptions,
@@ -59,10 +60,21 @@ describe("GeminiProvider", () => {
         company: "Tech Corp",
       },
       contentItems: [
-        { id: "1", name: "TypeScript", type: "skill" },
-        { id: "2", name: "React", type: "skill" },
+        { 
+          id: "sg1", 
+          type: "skill-group",
+          category: "Programming",
+          skills: ["TypeScript", "React"],
+          order: 1,
+          parentId: null,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          createdBy: "test@example.com",
+          updatedBy: "test@example.com",
+        },
         {
           id: "c1",
+          type: "company",
           company: "Previous Corp",
           role: "Senior Developer",
           startDate: "2020-01",
@@ -71,25 +83,26 @@ describe("GeminiProvider", () => {
           summary: "Led development team",
           accomplishments: ["Led team of 5 developers", "Improved performance by 40%"],
           technologies: ["React", "Node.js", "TypeScript"],
-          type: "company",
+          parentId: null,
+          order: 2,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          createdBy: "test@example.com",
+          updatedBy: "test@example.com",
         },
         {
           id: "p1",
+          type: "project",
           name: "E-commerce Platform",
           description: "Built a scalable platform",
           technologies: ["React", "Node.js"],
           role: "Lead Developer",
-          type: "project",
-        },
-        {
-          id: "s1",
-          sectionType: "experience",
-          heading: "Senior Developer",
-          subheading: "Previous Corp",
-          startDate: "2020-01",
-          endDate: "2023-12",
-          items: ["Led team of 5 developers"],
-          type: "profileSection",
+          parentId: null,
+          order: 3,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          createdBy: "test@example.com",
+          updatedBy: "test@example.com",
         },
       ],
       personalInfo: {
@@ -185,13 +198,22 @@ describe("GeminiProvider", () => {
         jobDescription: "We are looking for a senior engineer...",
       },
       contentItems: [
-        { id: "1", name: "TypeScript", type: "skill" },
-        { id: "2", name: "React", type: "skill" },
+        { 
+          id: "sg1", 
+          type: "skill-group",
+          category: "Programming",
+          skills: ["TypeScript", "React"],
+          order: 1,
+          parentId: null,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          createdBy: "test@example.com",
+          updatedBy: "test@example.com",
+        },
       ],
       personalInfo: {
         name: "John Doe",
         email: "john@example.com",
-        location: "San Francisco, CA",
       },
     }
 
@@ -242,7 +264,18 @@ describe("GeminiProvider", () => {
     it("should estimate tokens for resume generation", async () => {
       const options: GenerateResumeOptions = {
         job: { role: "Developer", company: "Tech" },
-        contentItems: [{ id: "1", name: "JavaScript", type: "skill" }],
+        contentItems: [{ 
+          id: "sg1", 
+          type: "skill-group",
+          category: "Programming",
+          skills: ["JavaScript"],
+          order: 1,
+          parentId: null,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          createdBy: "test@example.com",
+          updatedBy: "test@example.com",
+        }],
         personalInfo: {
           name: "Test User",
           email: "test@example.com",
@@ -307,7 +340,18 @@ describe("GeminiProvider", () => {
     it("should normalize resume content with all required fields", async () => {
       const options: GenerateResumeOptions = {
         job: { role: "Developer", company: "Tech" },
-        contentItems: [{ id: "1", name: "JavaScript", type: "skill" }],
+        contentItems: [{ 
+          id: "sg1", 
+          type: "skill-group",
+          category: "Programming",
+          skills: ["JavaScript"],
+          order: 1,
+          parentId: null,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          createdBy: "test@example.com",
+          updatedBy: "test@example.com",
+        }],
         personalInfo: {
           name: "Test User",
           email: "test@example.com",

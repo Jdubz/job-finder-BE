@@ -103,8 +103,9 @@ describe("ContentItemService", () => {
   describe("createItem", () => {
     it("should create a new content item", async () => {
       const newItem: CreateContentItemData = {
-        type: "skill",
-        title: "TypeScript",
+        type: "skill-group",
+        category: "Programming",
+        skills: ["TypeScript", "React", "Node.js"],
         order: 1,
         visibility: "published",
         parentId: null,
@@ -116,7 +117,9 @@ describe("ContentItemService", () => {
       const result = await service.createItem(newItem, "user@example.com")
 
       expect(result.id).toBe("new-item-123")
-      expect(result.title).toBe("TypeScript")
+      if (result.type === "skill-group") {
+        expect(result.category).toBe("Programming")
+      }
       expect(result.createdBy).toBe("user@example.com")
       expect(result.updatedBy).toBe("user@example.com")
       expect(result.createdAt).toBeInstanceOf(Timestamp)
@@ -124,8 +127,8 @@ describe("ContentItemService", () => {
 
       expect(mockCollection.add).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: "skill",
-          title: "TypeScript",
+          type: "skill-group",
+          category: "Programming",
           createdBy: "user@example.com",
           updatedBy: "user@example.com",
         })
@@ -134,8 +137,9 @@ describe("ContentItemService", () => {
 
     it("should set default visibility to published", async () => {
       const newItem: CreateContentItemData = {
-        type: "skill",
-        title: "Python",
+        type: "skill-group",
+        category: "Backend",
+        skills: ["Python", "Django", "PostgreSQL"],
         order: 1,
         parentId: null,
       }
@@ -149,8 +153,8 @@ describe("ContentItemService", () => {
 
     it("should handle parentId correctly", async () => {
       const newItem: CreateContentItemData = {
-        type: "skill",
-        title: "React",
+        type: "accomplishment",
+        description: "Increased team productivity by 40%",
         order: 1,
         parentId: "parent-123",
       }
@@ -166,8 +170,10 @@ describe("ContentItemService", () => {
   describe("updateItem", () => {
     it("should update an existing content item", async () => {
       const existingItem = {
-        type: "skill",
-        title: "JavaScript",
+        type: "timeline-event",
+        title: "JavaScript Basics",
+        date: "2023-01",
+        description: "Learning fundamentals",
         order: 1,
         visibility: "published",
       }
@@ -194,7 +200,9 @@ describe("ContentItemService", () => {
 
       const result = await service.updateItem("item-123", updates, "user@example.com")
 
-      expect(result.title).toBe("Advanced JavaScript")
+      if (result.type === "timeline-event") {
+        expect(result.title).toBe("Advanced JavaScript")
+      }
       expect(result.updatedBy).toBe("user@example.com")
       expect(mockDoc.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -265,22 +273,26 @@ describe("ContentItemService", () => {
   describe("listItems", () => {
     it("should list all items with no filters", async () => {
       const mockItems = [
-        { id: "1", title: "Item 1", type: "skill" },
-        { id: "2", title: "Item 2", type: "skill" },
+        { id: "1", title: "Event 1", type: "timeline-event", date: "2023-01", description: "First event" },
+        { id: "2", title: "Event 2", type: "timeline-event", date: "2023-02", description: "Second event" },
       ]
 
       mockQuery.get.mockResolvedValue({
         docs: mockItems.map((item) => ({
           id: item.id,
-          data: () => ({ title: item.title, type: item.type }),
+          data: () => item,
         })),
       })
 
       const result = await service.listItems()
 
       expect(result).toHaveLength(2)
-      expect(result[0].title).toBe("Item 1")
-      expect(result[1].title).toBe("Item 2")
+      if (result[0].type === "timeline-event") {
+        expect(result[0].title).toBe("Event 1")
+      }
+      if (result[1].type === "timeline-event") {
+        expect(result[1].title).toBe("Event 2")
+      }
     })
 
     it("should filter items by type", async () => {
@@ -288,15 +300,15 @@ describe("ContentItemService", () => {
         docs: [
           {
             id: "1",
-            data: () => ({ title: "TypeScript", type: "skill" }),
+            data: () => ({ category: "Programming", type: "skill-group", skills: ["TypeScript"] }),
           },
         ],
       })
 
-      const result = await service.listItems({ type: "skill" })
+      const result = await service.listItems({ type: "skill-group" })
 
       expect(result).toHaveLength(1)
-      expect(mockQuery.where).toHaveBeenCalledWith("type", "==", "skill")
+      expect(mockQuery.where).toHaveBeenCalledWith("type", "==", "skill-group")
     })
 
     it("should filter items by parentId", async () => {

@@ -223,19 +223,19 @@ describe("validation-helpers", () => {
   describe("hasRequiredKeys", () => {
     it("should validate objects with all required keys", () => {
       const obj = { name: "John", age: 30, email: "john@example.com" }
-      const result = hasRequiredKeys(obj, ["name", "email"])
+      const result = hasRequiredKeys(obj, ["name", "email"] as const)
       expect(result.isValid).toBe(true)
     })
 
     it("should reject objects missing required keys", () => {
-      const obj = { name: "John" }
+      const obj = { name: "John" } as { name: string; email?: string }
       const result = hasRequiredKeys(obj, ["name", "email"])
       expect(result.isValid).toBe(false)
       expect(result.errors[0]).toContain("email")
     })
 
     it("should reject objects with null values", () => {
-      const obj = { name: "John", email: null }
+      const obj = { name: "John", email: null } as { name: string; email: string | null }
       const result = hasRequiredKeys(obj, ["name", "email"])
       expect(result.isValid).toBe(false)
     })
