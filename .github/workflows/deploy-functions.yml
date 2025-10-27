@@ -284,22 +284,18 @@ jobs:
       fail-fast: false
       matrix:
         function:
-          # Generator Functions
-          - name: generateDocument
-            entry_point: generateDocument
+          # Job Queue Management Function
+          - name: manageJobQueue
+            entry_point: manageJobQueue
+            memory: 512Mi
+            max_instances: 50
+            changed: ${{ needs.detect-changes.outputs.generator }}
+          # Generator Management Function
+          - name: manageGenerator
+            entry_point: manageGenerator
             memory: 1024Mi
             max_instances: 50
             secrets: OPENAI_API_KEY=openai-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=google-genai-key:latest
-            changed: ${{ needs.detect-changes.outputs.generator }}
-          - name: getGenerationRequest
-            entry_point: getGenerationRequest
-            memory: 512Mi
-            max_instances: 50
-            changed: ${{ needs.detect-changes.outputs.generator }}
-          - name: getGenerationResponse
-            entry_point: getGenerationResponse
-            memory: 512Mi
-            max_instances: 50
             changed: ${{ needs.detect-changes.outputs.generator }}
 
     steps:
