@@ -32,7 +32,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       content-items: ${{ steps.changes.outputs.content-items }}
-      experience: ${{ steps.changes.outputs.experience }}
       generator: ${{ steps.changes.outputs.generator }}
       any-changed: ${{ steps.changes.outputs.any-changed }}
     steps:
@@ -64,7 +63,6 @@ jobs:
 
           # Check if shared code or specific function changed
           CONTENT_ITEMS_CHANGED=false
-          EXPERIENCE_CHANGED=false
           GENERATOR_CHANGED=false
           ANY_CHANGED=false
 
@@ -72,7 +70,6 @@ jobs:
           if echo "$CHANGED_FILES" | grep -qE "^functions/(src/(config|middleware|utils|types|services)|package\.json|tsconfig\.json)"; then
             echo "Shared code changed - all functions need redeployment"
             CONTENT_ITEMS_CHANGED=true
-            EXPERIENCE_CHANGED=true
             GENERATOR_CHANGED=true
             ANY_CHANGED=true
           fi
@@ -83,12 +80,7 @@ jobs:
             ANY_CHANGED=true
           fi
 
-          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|experience\.ts)"; then
-            EXPERIENCE_CHANGED=true
-            ANY_CHANGED=true
-          fi
-
-          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|generator\.ts|job-queue\.ts|resume\.ts|templates)"; then
+          if echo "$CHANGED_FILES" | grep -qE "^functions/src/(index\.ts|generator\.ts|job-queue\.ts|templates)"; then
             GENERATOR_CHANGED=true
             ANY_CHANGED=true
           fi
@@ -97,19 +89,16 @@ jobs:
           if echo "$CHANGED_FILES" | grep -qE "^\.github/workflows/deploy-functions\.yml"; then
             echo "Workflow changed - all functions need redeployment"
             CONTENT_ITEMS_CHANGED=true
-            EXPERIENCE_CHANGED=true
             GENERATOR_CHANGED=true
             ANY_CHANGED=true
           fi
 
           echo "content-items=$CONTENT_ITEMS_CHANGED" >> $GITHUB_OUTPUT
-          echo "experience=$EXPERIENCE_CHANGED" >> $GITHUB_OUTPUT
           echo "generator=$GENERATOR_CHANGED" >> $GITHUB_OUTPUT
           echo "any-changed=$ANY_CHANGED" >> $GITHUB_OUTPUT
 
           echo "Results:"
           echo "  content-items: $CONTENT_ITEMS_CHANGED"
-          echo "  experience: $EXPERIENCE_CHANGED"
           echo "  generator: $GENERATOR_CHANGED"
           echo "  any-changed: $ANY_CHANGED"
 
@@ -180,74 +169,24 @@ jobs:
       fail-fast: false
       matrix:
         function:
-          # Content Items Functions
-          - name: createContentItem
-            entry_point: createContentItem
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.content-items }}
-          - name: getContentItem
-            entry_point: getContentItem
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.content-items }}
-          - name: listContentItems
-            entry_point: listContentItems
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.content-items }}
-          - name: updateContentItem
-            entry_point: updateContentItem
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.content-items }}
-          - name: deleteContentItem
-            entry_point: deleteContentItem
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.content-items }}
-          # Experience Functions
-          - name: createExperience
-            entry_point: createExperience
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.experience }}
-          - name: getExperience
-            entry_point: getExperience
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.experience }}
-          - name: listExperiences
-            entry_point: listExperiences
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.experience }}
-          - name: updateExperience
-            entry_point: updateExperience
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.experience }}
-          - name: deleteExperience
-            entry_point: deleteExperience
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.experience }}
-          # Generator Functions
-          - name: generateDocument
-            entry_point: generateDocument
+          # Content Management Function (handles all CRUD operations for content items)
+          - name: manageContentItems
+            entry_point: manageContentItems
             memory: 512Mi
-            max_instances: 10
+            max_instances: 50
+            changed: ${{ needs.detect-changes.outputs.content-items }}
+          # Job Queue Management Function
+          - name: manageJobQueue
+            entry_point: manageJobQueue
+            memory: 512Mi
+            max_instances: 50
+            changed: ${{ needs.detect-changes.outputs.generator }}
+          # Generator Management Function (handles document generation requests)
+          - name: manageGenerator
+            entry_point: manageGenerator
+            memory: 1024Mi
+            max_instances: 50
             secrets: OPENAI_API_KEY=openai-api-key:latest,GOOGLE_GENERATIVE_AI_API_KEY=google-genai-key:latest
-            changed: ${{ needs.detect-changes.outputs.generator }}
-          - name: getGenerationRequest
-            entry_point: getGenerationRequest
-            memory: 256Mi
-            max_instances: 10
-            changed: ${{ needs.detect-changes.outputs.generator }}
-          - name: getGenerationResponse
-            entry_point: getGenerationResponse
-            memory: 256Mi
-            max_instances: 10
             changed: ${{ needs.detect-changes.outputs.generator }}
 
     steps:
