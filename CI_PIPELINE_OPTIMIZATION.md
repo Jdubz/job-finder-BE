@@ -110,9 +110,28 @@ npm run build  # ✓ Success
 ## Next Steps
 
 1. ✅ Push changes to staging branch
-2. ⏳ Monitor PR #46 CI pipeline
-3. ⏳ Verify deployment succeeds
-4. ⏳ Merge to main when approved
+2. ✅ Fixed CI workflow configuration issue
+3. ⏳ Monitor PR #46 CI pipeline
+4. ⏳ Verify all checks pass
+5. ⏳ Merge to main when approved
+
+## Additional Fix (Post-Initial Push)
+
+### Issue
+The first attempt failed because:
+- The repo root has an `eslint.config.mjs` file
+- Using `defaults.run.working-directory: functions` didn't prevent checkout from placing files at root
+- When npm tried to run eslint, it found the root `eslint.config.mjs` which imports `@eslint/js` (not installed at root)
+
+### Solution
+Changed from job-level `defaults.run.working-directory` to per-step `working-directory` for each npm command:
+```yaml
+- name: Install dependencies
+  working-directory: functions
+  run: npm ci
+```
+
+This ensures npm commands run in the functions directory where dependencies are installed, while allowing checkout to work normally.
 
 ## Files Modified
 
