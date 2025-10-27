@@ -158,12 +158,6 @@ jobs:
       fail-fast: false
       matrix:
         function:
-          # Job Queue Management Function
-          - name: manageJobQueue
-            entry_point: manageJobQueue
-            memory: 512Mi
-            max_instances: 50
-            changed: ${{ needs.detect-changes.outputs.generator }}
           # Generator Management Function (handles document generation requests)
           - name: manageGenerator
             entry_point: manageGenerator
@@ -284,12 +278,6 @@ jobs:
       fail-fast: false
       matrix:
         function:
-          # Job Queue Management Function
-          - name: manageJobQueue
-            entry_point: manageJobQueue
-            memory: 512Mi
-            max_instances: 50
-            changed: ${{ needs.detect-changes.outputs.generator }}
           # Generator Management Function
           - name: manageGenerator
             entry_point: manageGenerator
