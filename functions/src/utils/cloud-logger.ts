@@ -169,6 +169,19 @@ export function createCloudLogger(
   }
 
   /**
+   * Convert labels to Record<string, string>, filtering out undefined values
+   */
+  function toStringRecord(labels: CloudLoggingLabels): Record<string, string> {
+    const result: Record<string, string> = {}
+    for (const [key, value] of Object.entries(labels)) {
+      if (value !== undefined) {
+        result[key] = String(value)
+      }
+    }
+    return result
+  }
+
+  /**
    * Write a structured log entry to Cloud Logging
    */
   function writeLog(level: LogLevel, entry: Omit<StructuredLogEntry, 'category'> & { category?: StructuredLogEntry['category'] }): void {
@@ -200,7 +213,7 @@ export function createCloudLogger(
       }
     } = {
       severity: getSeverity(level),
-      labels: labels as unknown as Record<string, string>,
+      labels: toStringRecord(labels),
       resource: {
         type: 'cloud_function',
         labels: {

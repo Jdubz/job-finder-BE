@@ -57,7 +57,7 @@ export type PersonalInfo = PersonalInfoDocument
  * Convert TimestampLike to milliseconds
  * Handles both Date objects and Firestore Timestamps
  */
-export function timestampToMillis(timestamp: any): number {
+export function timestampToMillis(timestamp: Date | { toMillis(): number }): number {
   if (timestamp instanceof Date) {
     return timestamp.getTime()
   }
