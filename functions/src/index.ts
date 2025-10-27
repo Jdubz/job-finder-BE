@@ -16,8 +16,5 @@ export { manageJobQueue } from './job-queue';
 // Export generator functions
 export { manageGenerator } from './generator';
 
-// Export content management functions
-export { manageContentItems } from './content-items';
-
 // TODO: Export job matches functions
 // export { getMatches, updateMatch } from './job-matches';
