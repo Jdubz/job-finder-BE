@@ -20,6 +20,13 @@ jest.mock("../../utils/logger", () => ({
     warn: jest.fn(),
     debug: jest.fn(),
   }),
+  logger: {
+    info: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    warning: jest.fn(),
+  },
 }))
 
 describe("ContentItemService", () => {
