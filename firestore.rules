@@ -208,6 +208,20 @@ service cloud.firestore {
     }
 
     // ============================================================
+    // AI PROMPTS COLLECTION
+    // Stores AI prompt templates used for document generation
+    // Single-owner system - owner's prompt templates
+    // ============================================================
+
+    match /ai-prompts/{promptId} {
+      // All users can read AI prompts
+      allow read: if canRead();
+
+      // All authenticated users can manage prompts
+      allow write: if isAuthenticated();
+    }
+
+    // ============================================================
     // DEFAULT DENY ALL
     // All other collections require explicit rules
     // ============================================================
