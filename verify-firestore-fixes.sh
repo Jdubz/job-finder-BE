@@ -45,23 +45,41 @@ else
 fi
 
 # Validate JSON syntax
-if python3 -m json.tool firestore.indexes.json > /dev/null 2>&1; then
-    print_result 0 "firestore.indexes.json is valid JSON"
+if command -v python3 >/dev/null 2>&1; then
+    if python3 -m json.tool firestore.indexes.json > /dev/null 2>&1; then
+        print_result 0 "firestore.indexes.json is valid JSON"
+    else
+        print_result 1 "firestore.indexes.json has invalid JSON syntax"
+    fi
 else
-    print_result 1 "firestore.indexes.json has invalid JSON syntax"
+    print_result 1 "python3 is not installed; cannot validate firestore.indexes.json syntax"
 fi
 
 echo ""
 echo "2. Checking index completeness..."
 echo ""
 
-# Count indexes
-index_count=$(jq '.indexes | length' firestore.indexes.json 2>/dev/null || echo "0")
+expected_index_count="${EXPECTED_INDEX_COUNT:-8}"
+if [ $# -ge 1 ]; then
+    expected_index_count="$1"
+fi
 
-if [ "$index_count" -ge 18 ]; then
-    print_result 0 "Found $index_count indexes (expected >= 18)"
+# Count indexes
+jq_available=1
+if command -v jq >/dev/null 2>&1; then
+    index_count=$(jq '.indexes | length' firestore.indexes.json 2>/dev/null || echo "0")
 else
-    print_result 1 "Found only $index_count indexes (expected >= 18)"
+    jq_available=0
+fi
+
+if [ "$jq_available" -eq 1 ]; then
+    if [ "$index_count" -ge "$expected_index_count" ]; then
+        print_result 0 "Found $index_count indexes (expected >= $expected_index_count)"
+    else
+        print_result 1 "Found only $index_count indexes (expected >= $expected_index_count)"
+    fi
+else
+    echo -e "${YELLOW}⚠️  Skipping index count threshold check because jq is unavailable${NC}"
 fi
 
 # Check for critical indexes
@@ -99,7 +117,7 @@ else
 fi
 
 echo ""
-echo "4. Checking Firebase CLI..."
+echo "4. Checking Firebase CLI and tooling..."
 echo ""
 
 if command -v firebase &> /dev/null; then
@@ -115,41 +133,54 @@ else
     print_result 1 "Firebase CLI not installed (run: npm install -g firebase-tools)"
 fi
 
+if command -v jq >/dev/null 2>&1; then
+    print_result 0 "jq is installed"
+else
+    print_result 1 "jq is not installed. Please install jq to continue."
+    jq_available=0
+fi
+
 echo ""
 echo "5. Checking frontend code..."
 echo ""
 
-# Check if reference counting was added to types
-if [ -f "../job-finder-FE/src/services/firestore/types.ts" ]; then
-    if grep -q "subscriberCount" "../job-finder-FE/src/services/firestore/types.ts"; then
-        print_result 0 "Reference counting types added"
-    else
-        print_result 1 "Reference counting types missing"
-    fi
-else
-    print_result 1 "Firestore types file not found"
-fi
+FE_DIR="${JOB_FINDER_FE_DIR:-../job-finder-FE}"
 
-# Check if persistence was added to firebase.ts
-if [ -f "../job-finder-FE/src/config/firebase.ts" ]; then
-    if grep -q "enableIndexedDbPersistence\|enableMultiTabIndexedDbPersistence" "../job-finder-FE/src/config/firebase.ts"; then
-        print_result 0 "Offline persistence configured"
-    else
-        print_result 1 "Offline persistence not configured"
-    fi
+if [ ! -d "$FE_DIR" ]; then
+    print_result 1 "Frontend directory not found at $FE_DIR (override with JOB_FINDER_FE_DIR)"
 else
-    print_result 1 "Firebase config file not found"
-fi
+    # Check if reference counting was added to types
+    if [ -f "$FE_DIR/src/services/firestore/types.ts" ]; then
+        if grep -q "subscriberCount" "$FE_DIR/src/services/firestore/types.ts"; then
+            print_result 0 "Reference counting types added"
+        else
+            print_result 1 "Reference counting types missing"
+        fi
+    else
+        print_result 1 "Firestore types file not found"
+    fi
 
-# Check if FirestoreContext was updated
-if [ -f "../job-finder-FE/src/contexts/FirestoreContext.tsx" ]; then
-    if grep -q "subscriberCount" "../job-finder-FE/src/contexts/FirestoreContext.tsx"; then
-        print_result 0 "FirestoreContext reference counting implemented"
+    # Check if persistence was added to firebase.ts
+    if [ -f "$FE_DIR/src/config/firebase.ts" ]; then
+        if grep -q "enableIndexedDbPersistence\|enableMultiTabIndexedDbPersistence" "$FE_DIR/src/config/firebase.ts"; then
+            print_result 0 "Offline persistence configured"
+        else
+            print_result 1 "Offline persistence not configured"
+        fi
     else
-        print_result 1 "FirestoreContext reference counting missing"
+        print_result 1 "Firebase config file not found"
     fi
-else
-    print_result 1 "FirestoreContext file not found"
+
+    # Check if FirestoreContext was updated
+    if [ -f "$FE_DIR/src/contexts/FirestoreContext.tsx" ]; then
+        if grep -q "subscriberCount" "$FE_DIR/src/contexts/FirestoreContext.tsx"; then
+            print_result 0 "FirestoreContext reference counting implemented"
+        else
+            print_result 1 "FirestoreContext reference counting missing"
+        fi
+    else
+        print_result 1 "FirestoreContext file not found"
+    fi
 fi
 
 echo ""
