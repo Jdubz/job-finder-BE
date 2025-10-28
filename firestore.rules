@@ -4,21 +4,35 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ============================================================
+    // SECURITY MODEL
+    // ============================================================
+    // This is a PUBLIC PORTFOLIO project.
+    // 
+    // READ ACCESS: All collections allow public read access (GET)
+    //              - Anyone can view all data (authenticated or not)
+    //              - This showcases the portfolio functionality
+    //
+    // WRITE ACCESS: Only authenticated users can write/modify data
+    //               - Admin operations gated by authentication
+    //               - Some collections may have additional owner checks
+    //
+    // ============================================================
+
+    // ============================================================
     // HELPER FUNCTIONS
     // ============================================================
 
     /**
      * Check if user is authenticated
      * Used ONLY for write operations
-     * This is a public demo - anyone can view all data
-     * Only authenticated users can write data
      */
     function isAuthenticated() {
       return request.auth != null;
     }
 
     /**
-     * Allow all reads (authenticated or not)
+     * Public read access - this is a public portfolio
+     * Anyone can view all data (authenticated or not)
      */
     function canRead() {
       return true;
@@ -210,14 +224,15 @@ service cloud.firestore {
     // ============================================================
     // AI PROMPTS COLLECTION
     // Stores AI prompt templates used for document generation
-    // Single-owner system - owner's prompt templates
+    // Public portfolio - all users can view prompts
+    // Only authenticated users can manage prompts
     // ============================================================
 
     match /ai-prompts/{promptId} {
-      // All users can read AI prompts
-      allow read: if canRead();
+      // Public read access - anyone can view prompts
+      allow read: if true;
 
-      // All authenticated users can manage prompts
+      // Only authenticated users can manage prompts
       allow write: if isAuthenticated();
     }
 
