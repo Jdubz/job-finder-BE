@@ -9,7 +9,7 @@ service cloud.firestore {
 
     /**
      * Check if user is authenticated
-     * REMOVED: Authentication is not required for reads
+     * Used ONLY for write operations
      * This is a public demo - anyone can view all data
      * Only authenticated users can write data
      */
@@ -35,11 +35,12 @@ service cloud.firestore {
     // ============================================================
     // JOB QUEUE COLLECTION
     // Used by: job-queue.service.ts
-    // All authenticated users can submit jobs for processing
+    // All users can read job queue items
+    // Only authenticated users can submit jobs for processing
     // ============================================================
 
     match /job-queue/{queueId} {
-      // All authenticated users can read all queue items
+      // All users can read all queue items
       allow read: if canRead();
 
       // All authenticated users can create queue items
@@ -61,7 +62,7 @@ service cloud.firestore {
     // ============================================================
 
     match /generator-documents/{documentId} {
-      // All authenticated users can read all documents
+      // All users can read all documents
       allow read: if canRead();
 
       // All authenticated users can create document generation requests
@@ -80,7 +81,7 @@ service cloud.firestore {
     // ============================================================
 
     match /content-items/{itemId} {
-      // All authenticated users can read all content items
+      // All users can read all content items
       allow read: if canRead();
 
       // All authenticated users can create content items
@@ -102,7 +103,7 @@ service cloud.firestore {
     // ============================================================
 
     match /experiences/{experienceId} {
-      // All authenticated users can read all experiences
+      // All users can read all experiences
       allow read: if canRead();
 
       // All authenticated users can create experiences
@@ -124,7 +125,7 @@ service cloud.firestore {
     // ============================================================
 
     match /personal-info/{docId} {
-      // All authenticated users can read personal info
+      // All users can read personal info
       allow read: if canRead();
 
       // All authenticated users can write to personal info
@@ -142,7 +143,7 @@ service cloud.firestore {
     // ============================================================
 
     match /user-profiles/{userId} {
-      // All authenticated users can read profiles
+      // All users can read profiles
       allow read: if canRead();
 
       // All authenticated users can create/update profiles
@@ -155,11 +156,11 @@ service cloud.firestore {
     // ============================================================
     // JOB MATCHES COLLECTION (Shared with job-finder-worker)
     // Written by worker, read by frontend
-    // All job matches are visible to all authenticated users
+    // All job matches are visible to all users
     // ============================================================
 
     match /job-matches/{matchId} {
-      // All authenticated users can read all matches
+      // All users can read all matches
       allow read: if canRead();
 
       // Worker writes via service account (no client writes)
@@ -169,11 +170,11 @@ service cloud.firestore {
     // ============================================================
     // COMPANIES COLLECTION (Shared with job-finder-worker)
     // Written by worker, read by frontend
-    // Company data visible to all authenticated users
+    // Company data visible to all users
     // ============================================================
 
     match /companies/{companyId} {
-      // All authenticated users can read company data
+      // All users can read company data
       allow read: if canRead();
 
       // Worker writes via service account (no client writes)
@@ -186,7 +187,7 @@ service cloud.firestore {
     // ============================================================
 
     match /job-sources/{sourceId} {
-      // All authenticated users can read source configs
+      // All users can read source configs
       allow read: if canRead();
 
       // All authenticated users can manage sources
@@ -199,7 +200,7 @@ service cloud.firestore {
     // ============================================================
 
     match /job-finder-config/{configId} {
-      // All authenticated users can read config
+      // All users can read config
       allow read: if canRead();
 
       // All authenticated users can write to config
