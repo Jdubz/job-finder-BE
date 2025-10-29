@@ -15,7 +15,7 @@ This policy covers the Job Finder backend service (`job-finder-BE`) including al
 
 ## Reporting a Vulnerability
 
-1. **Create a private GitHub Security Advisory** for `Jdubz/job-finder-BE` (preferred).  
+1. **Create a private GitHub Security Advisory** for `<OWNER>/<REPO>` (preferred).  
 2. **Direct message Worker A and the PM** in Slack with the advisory link and high-level summary.  
 3. If Slack is unavailable, email the PM using the address on file and include Worker A.  
 4. Do not open public issues or PRs describing the vulnerability until remediation ships.
