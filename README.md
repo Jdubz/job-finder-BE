@@ -314,6 +314,10 @@ Key variables:
 
 ## Security
 
+See:
+- `docs/security/security-policy.md` — Reporting process, hardening standards, and incident response.
+- `docs/security/index-verification.md` — Firestore rules and index verification workflow.
+
 ### Secrets Management
 
 Secrets are stored in Google Cloud Secret Manager:
@@ -353,6 +357,11 @@ Or in Firebase Console:
 Monitor function performance in:
 - Firebase Console > Functions
 - Google Cloud Console > Cloud Functions
+
+### Structured Logging
+
+- Review `docs/operations/structured-logging.md` for backend log format, required environment variables, and deployment steps.
+- Cross-repo architecture docs live in the shared submodule at `docs/shared/job-finder-docs/docs/architecture/structured-logging-overview.md`.
 
 ## CI/CD
 
