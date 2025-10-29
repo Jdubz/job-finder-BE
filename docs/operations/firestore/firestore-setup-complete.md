@@ -15,6 +15,12 @@
 
 ### Production Data → Local Emulator
 
+⚠️ **SECURITY NOTICE**: This emulator contains production data synced from the Portfolio DB. Ensure all production data is handled according to security policies. If data contains PII or sensitive information:
+- Do not commit exported data to version control
+- Limit access to authorized developers only
+- Follow data retention and privacy policies
+- Use anonymized test data when possible for development
+
 | Collection            | Source                        | Documents Synced |
 | --------------------- | ----------------------------- | ---------------- |
 | `generator-documents` | Migrated from `generator`     | **79**           |
