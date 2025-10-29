@@ -2,7 +2,24 @@
 
 ## 🎉 All Data Synced Successfully!
 
+> **⚠️ SECURITY WARNING: Production Data Handling**
+>
+> This setup involves syncing production data to your local development environment. Please be aware:
+> - Production data may contain **Personally Identifiable Information (PII)** and sensitive business data
+> - Ensure you comply with your organization's security and data handling policies
+> - Do not commit production data to version control
+> - Restrict access to your local emulator to trusted networks only
+> - Follow data minimization principles - only sync what you need for development
+> - Clear production data from your local environment when no longer needed
+> - Be mindful of data residency and privacy regulations (GDPR, CCPA, etc.)
+
 ### Production Data → Local Emulator
+
+⚠️ **SECURITY NOTICE**: This emulator contains production data synced from the Portfolio DB. Ensure all production data is handled according to security policies. If data contains PII or sensitive information:
+- Do not commit exported data to version control
+- Limit access to authorized developers only
+- Follow data retention and privacy policies
+- Use anonymized test data when possible for development
 
 | Collection            | Source                        | Documents Synced |
 | --------------------- | ----------------------------- | ---------------- |
@@ -104,6 +121,8 @@ make emulators  # Starts with --import and --export-on-exit
 ```
 
 ### Refresh Content Items from Production
+
+> ⚠️ **Note**: This syncs production data. Review the security warning at the top of this document before proceeding.
 
 ```bash
 cd job-finder-BE
