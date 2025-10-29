@@ -2,7 +2,7 @@
 
 ## 🚨 What Happened
 
-**When**: October 22, 2025 ~02:53 AM  
+**When**: October 22, 2025 ~02:53 AM  _(example date)_
 **Who**: AI Assistant (me) during Firestore connection debugging  
 **What**: Accidentally cleared all Firestore emulator data
 
