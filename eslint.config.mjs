@@ -50,6 +50,15 @@ export default [
     }
   },
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', '*.config.js', 'functions/dist/', 'src/', 'docs/shared/**']
+    ignores: [
+      'dist/',
+      'node_modules/',
+      'coverage/',
+      '*.config.js',
+      'functions/dist/',
+      'server/dist/',
+      'src/',
+      'docs/shared/**'
+    ]
   }
 ];
